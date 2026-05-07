@@ -1,0 +1,48 @@
+# Signal data files
+
+*.dada
+
+# C++ & CUDA Build Artifacts
+
+# Ignore all object files
+*.o
+*.obj
+
+# Ignore compiled executables 
+*.out
+*.exe
+*.app
+PFB_app
+
+# Ignore compiled dynamic and static libraries
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+
+# CMake Specific
+
+# Ignore the standard CMake build directory
+build/
+bin/
+objs/
+
+# Ignore in-source CMake generated files (just in case)
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+cmake_install.cmake
+
+# IDE & OS Specific
+
+# Visual Studio Code
+.vscode/
+
+# CLion / IntelliJ
+.idea/
+cmake-build-*/
+
+# macOS / Windows
+.DS_Store
+Thumbs.db

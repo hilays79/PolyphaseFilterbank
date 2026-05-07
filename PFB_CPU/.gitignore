@@ -1,0 +1,28 @@
+# 1. Ignore absolutely everything in the root directory
+/*
+
+# 2. Explicitly allow the directories you want
+!/codes/
+!/Data/
+!/README.md
+
+# 3. Explicitly allow essential Git configuration files
+!/.gitignore
+!/.gitmodules
+
+# 4. Re-apply specific rules INSIDE the allowed directories
+# Ignore all massive binary data files. This is applied recursively to all subdirectories, so it will ignore .dada files in both input_files and output_files.
+*.dada
+
+# Ignore the entire animations subdirectory
+Data/animations/
+
+# Ignore VScode setup files
+codes/.vscode
+codes/Fourier_Space.code-workspace
+
+# Ignore tests
+codes/tests/
+
+# Ignore build directory as user will create their own
+codes/PFB_cpp/build/
