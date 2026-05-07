@@ -7,7 +7,7 @@ from ipdb import set_trace as stop
 
 # Dynamically find the repo root
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
+REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..'))
 
 def create_binary_test_signals(n_taps, n_chan, n_windows, freq, delta_period, delta_start, in_NBIT, include_noise=False, signal_type="sinusoidals", save=True):
     savepath_base = os.path.join(REPO_ROOT, "Data", "input_files")
