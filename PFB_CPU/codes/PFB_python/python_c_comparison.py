@@ -11,7 +11,7 @@ import PFB
 
 # Dynamically find the repo root
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..'))
+REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..'))
 
 def get_output_filepath(language, signal_type, n_taps, n_chan, n_windows, include_noise, nbit, freq=None, delta_period=None, delta_start=None):
     """Helper to construct the expected output file path for either Python or C++."""
@@ -85,8 +85,8 @@ def run_benchmark(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp):
     delta_period, delta_start = 257, 0
     include_noise = False
 
-    cpp_executable = os.path.join(REPO_ROOT, "codes", "PFB_cpp", "build", "pfb_app")
-    cpp_build_dir = os.path.join(REPO_ROOT, "codes", "PFB_cpp", "build")
+    cpp_executable = os.path.join(REPO_ROOT, "PFB_CPU", "codes", "PFB_cpp", "build", "pfb_app")
+    cpp_build_dir = os.path.join(REPO_ROOT, "PFB_CPU", "codes", "PFB_cpp", "build")
 
     print(f"{'W':<7} | {'Py Time (s)':<12} | {'C++ Tot (s)':<12} | {'C++ Set (s)':<12} | {'C++ Exe (s)':<12} | {'C++ Set/Exec':<12} | {'Speedup':<9} | {'Max Diff':<10}")
     print("-" * 105)
@@ -128,7 +128,6 @@ def run_benchmark(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp):
             capture_output=True, 
             text=True
         )
-        
         cpp_total = None
         cpp_setup = None
         cpp_exec = None
