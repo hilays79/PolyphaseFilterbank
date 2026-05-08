@@ -276,7 +276,7 @@ def benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cp
     fig.suptitle(sup_title, fontsize=14, fontweight='bold')
 
     plt.tight_layout()
-    plt.savefig('images/benchmark_scaling_plots_{}_{}_{}_{}.png'.format(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp), dpi=300)
+    plt.savefig('images/benchmark_scaling_plots_{}_{}_{}_{}_optimised.png'.format(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp), dpi=300)
     plt.show()
 
 if __name__ == "__main__":
