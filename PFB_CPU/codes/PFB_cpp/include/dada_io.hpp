@@ -53,11 +53,18 @@ namespace dada {
         return out;
     }
 
-// --- 3. HELPER: BUILD FILEPATHS (Updated with bit-depth subdirectories) ---
-    inline std::string build_filepath(bool is_input, const std::string& type, int nbit, int M, int P, int W, bool noise, double freq, int d_per, int d_start) {
+// --- 3. HELPER: BUILD FILEPATHS (Updated with bit-depth subdirectories & CUDA routing) ---
+    inline std::string build_filepath(bool is_input, const std::string& type, int nbit, int M, int P, int W, bool noise, double freq, int d_per, int d_start, bool is_CUDA = false) {
         // Assumes the executable is run from codes/PFB_cpp/build/
         std::string repo_root = "../../../../"; 
-        std::string base = is_input ? repo_root + "Data/input_files/" : repo_root + "Data/output_files/c++/";
+        
+        // Route the base path depending on input/output and CPU/GPU
+        std::string base;
+        if (is_input) {
+            base = repo_root + "Data/input_files/";
+        } else {
+            base = repo_root + (is_CUDA ? "Data/output_files/CUDA/" : "Data/output_files/c++/");
+        }
         
         // New directory structure: {type}/{nbit}-bit/
         std::string bit_dir = std::to_string(nbit) + "-bit/";

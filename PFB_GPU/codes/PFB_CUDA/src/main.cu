@@ -51,6 +51,7 @@ int main(int argc, char* argv[]) {
     int n_time_blocks = M * W - M + 1;
     int n_integrated_time_blocks = n_time_blocks / n_integrations;
     int output_length = n_integrated_time_blocks * P;
+    bool CPU_verification = true; // Set to true to run CPU version for verification, can be turned off for larger runs where CPU would take too long
 
     // ========================================================================
 
@@ -64,10 +65,11 @@ int main(int argc, char* argv[]) {
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
-        std::vector<double> cpu_output = PFB_filterbank<double>(signal, M, P, W, n_integrations);
-
-        double max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
+        if (CPU_verification) {
+            std::vector<double> cpu_output = PFB_filterbank<double>(signal, M, P, W, n_integrations);
+            double max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+        }
     }
     else if (read_from_file == 0 && in_NBIT == 64 && out_NBIT == 32) {
         std::cout << "\n=== Gen Signal | 64-bit In | 32-bit Out ===\n";
@@ -79,10 +81,12 @@ int main(int argc, char* argv[]) {
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
+        if (CPU_verification) {
         std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
 
-        float max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
+            float max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+        }
     }
     else if (read_from_file == 0 && in_NBIT == 32 && out_NBIT == 32) {
         std::cout << "\n=== Gen Signal | 32-bit In | 32-bit Out ===\n";
@@ -94,10 +98,12 @@ int main(int argc, char* argv[]) {
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
-        std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
+        if (CPU_verification) {
+            std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
 
-        float max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
+            float max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+        }
     }
 
     // SCENARIO 2: READ SPECIFIC FILE (read_from_file == 1)
@@ -110,19 +116,22 @@ int main(int argc, char* argv[]) {
         PFB<double> testPFB(M, P, W, n_integrations);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
-
-        std::vector<double> cpu_output = PFB_filterbank<double>(signal, M, P, W, n_integrations);
-
-        double max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
-
-        std::string out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start);
+        std::string out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start, true); // First false is for output, last true is to save it in CUDA output folder, default is c++
         dada::save_dada(gpu_output, P, ndim_out, out_NBIT, out_path);
+
+        if (CPU_verification) {
+            std::vector<double> cpu_output = PFB_filterbank<double>(signal, M, P, W, n_integrations);
+            double max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+            std::string out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start); // First false is for output, absence of last true means it will be saved in the default C++ output folder
+            dada::save_dada(cpu_output, P, ndim_out, out_NBIT, out_path);
+        }
     }
+
     else if (read_from_file == 1 && in_NBIT == 64 && out_NBIT == 32) {
         std::cout << "\n=== Read File | 64-bit In | 32-bit Out ===\n";
         std::string filepath = dada::build_filepath(true, signal_type, in_NBIT, M, P, W, include_noise, freq, delta_period, delta_start);
-        auto raw_signal = dada::read_dada_for_pfb<std::complex<double>>(filepath).data; // This is not calling the pointer, .data is just to access the vector inside the struct in dada_io.hpp
+        auto raw_signal = dada::read_dada_for_pfb<std::complex<double>>(filepath).data; 
         std::vector<std::complex<float>> signal(raw_signal.begin(), raw_signal.end());
 
         std::vector<float> gpu_output(output_length);
@@ -130,31 +139,41 @@ int main(int argc, char* argv[]) {
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
-        std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
-
-        float max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
-
-        std::string out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start);
+        std::string out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start, true);
         dada::save_dada(gpu_output, P, ndim_out, out_NBIT, out_path);
+
+        if (CPU_verification) {
+            std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
+            
+            auto max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+            
+            std::string cpu_out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start); 
+            dada::save_dada(cpu_output, P, ndim_out, out_NBIT, cpu_out_path);
+        }
     }
     else if (read_from_file == 1 && in_NBIT == 32 && out_NBIT == 32) {
         std::cout << "\n=== Read File | 32-bit In | 32-bit Out ===\n";
         std::string filepath = dada::build_filepath(true, signal_type, in_NBIT, M, P, W, include_noise, freq, delta_period, delta_start);
-        auto signal = dada::read_dada_for_pfb<std::complex<float>>(filepath).data; // This is not calling the pointer, .data is just to access the vector inside the struct in dada_io.hpp
+        auto signal = dada::read_dada_for_pfb<std::complex<float>>(filepath).data; 
 
         std::vector<float> gpu_output(output_length);
         PFB<float> testPFB(M, P, W, n_integrations);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
-        std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
-
-        float max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
-
-        std::string out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start);
+        std::string out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start, true);
         dada::save_dada(gpu_output, P, ndim_out, out_NBIT, out_path);
+
+        if (CPU_verification) {
+            std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
+            
+            auto max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+            
+            std::string cpu_out_path = dada::build_filepath(false, signal_type, out_NBIT, M, P, W, include_noise, freq, delta_period, delta_start); 
+            dada::save_dada(cpu_output, P, ndim_out, out_NBIT, cpu_out_path);
+        }
     }
 
     // ========================================================================
@@ -162,24 +181,29 @@ int main(int argc, char* argv[]) {
     // ========================================================================
     else if (read_from_file == 2 && in_NBIT == 64 && out_NBIT == 64) {
         std::cout << "\n=== Read Custom | 64-bit In | 64-bit Out ===\n";
-        auto signal = dada::read_dada_for_pfb<std::complex<double>>(custom_in_path).data; // This is not calling the pointer, .data is just to access the vector inside the struct in dada_io.hpp
+        auto signal = dada::read_dada_for_pfb<std::complex<double>>(custom_in_path).data; 
 
         std::vector<double> gpu_output(output_length);
         PFB<double> testPFB(M, P, W, n_integrations);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
-        std::vector<double> cpu_output = PFB_filterbank<double>(signal, M, P, W, n_integrations);
+        // Assuming custom_out_path was defined at the top of your main file
+        dada::save_dada(gpu_output, P, ndim_out, out_NBIT, custom_out_path);
 
-        double max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
-
-        std::string out_path = custom_in_path + ".out"; // Simplify output naming for custom paths
-        dada::save_dada(gpu_output, P, ndim_out, out_NBIT, out_path);
+        if (CPU_verification) {
+            std::vector<double> cpu_output = PFB_filterbank<double>(signal, M, P, W, n_integrations);
+            
+            auto max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+            
+            std::string cpu_out_path = custom_out_path + "_cpu";
+            dada::save_dada(cpu_output, P, ndim_out, out_NBIT, cpu_out_path);
+        }
     }
     else if (read_from_file == 2 && in_NBIT == 64 && out_NBIT == 32) {
         std::cout << "\n=== Read Custom | 64-bit In | 32-bit Out ===\n";
-        auto raw_signal = dada::read_dada_for_pfb<std::complex<double>>(custom_in_path).data; // This is not calling the pointer, .data is just to access the vector inside the struct in dada_io.hpp
+        auto raw_signal = dada::read_dada_for_pfb<std::complex<double>>(custom_in_path).data; 
         std::vector<std::complex<float>> signal(raw_signal.begin(), raw_signal.end());
 
         std::vector<float> gpu_output(output_length);
@@ -187,37 +211,43 @@ int main(int argc, char* argv[]) {
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
-        std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
+        dada::save_dada(gpu_output, P, ndim_out, out_NBIT, custom_out_path);
 
-        float max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
-
-        std::string out_path = custom_in_path + ".out";
-        dada::save_dada(gpu_output, P, ndim_out, out_NBIT, out_path);
+        if (CPU_verification) {
+            std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
+            
+            auto max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+            
+            std::string cpu_out_path = custom_out_path + "_cpu";
+            dada::save_dada(cpu_output, P, ndim_out, out_NBIT, cpu_out_path);
+        }
     }
     else if (read_from_file == 2 && in_NBIT == 32 && out_NBIT == 32) {
         std::cout << "\n=== Read Custom | 32-bit In | 32-bit Out ===\n";
-        auto signal = dada::read_dada_for_pfb<std::complex<float>>(custom_in_path).data; // This is not calling the pointer, .data is just to access the vector inside the struct in dada_io.hpp
+        auto signal = dada::read_dada_for_pfb<std::complex<float>>(custom_in_path).data; 
 
         std::vector<float> gpu_output(output_length);
         PFB<float> testPFB(M, P, W, n_integrations);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
-        std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
+        dada::save_dada(gpu_output, P, ndim_out, out_NBIT, custom_out_path);
 
-        float max_diff = calculate_max_difference(gpu_output, cpu_output);
-        std::cout << "Max Diff: " << max_diff << "\n";
-
-        std::string out_path = custom_in_path + ".out";
-        dada::save_dada(gpu_output, P, ndim_out, out_NBIT, out_path);
+        if (CPU_verification) {
+            std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
+            
+            auto max_diff = calculate_max_difference(gpu_output, cpu_output);
+            std::cout << "Max Diff: " << max_diff << "\n";
+            
+            std::string cpu_out_path = custom_out_path + "_cpu";
+            dada::save_dada(cpu_output, P, ndim_out, out_NBIT, cpu_out_path);
+        }
     }
     else {
-        std::cerr << "Fatal Error: Unsupported combination of read_from_file, in_NBIT, and out_NBIT.\n";
+        std::cerr << "Invalid combination of read_from_file, in_NBIT, and out_NBIT. Please check your inputs.\n";
         return 1;
     }
-
-    return 0;
 }
 
 // This main function was only used for testing the compilation and execution.
