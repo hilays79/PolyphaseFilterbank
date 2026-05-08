@@ -134,13 +134,13 @@ template <typename T>
 void PFB<T>::FIR(std::complex<T>* h_inputData) {
     auto s_start = std::chrono::high_resolution_clock::now(); // START SETUP TIMING
     // Copy the input data from the host (supplied by main.cu) to the device
-    // POSSIBLE OPTIMISATION: CALL cudahostregister to convert page to pin and then unregister it at the end of copying.
     CUDA_CHECK(cudaMemcpy(d_inputData, h_inputData, input_length * sizeof(std::complex<T>), cudaMemcpyHostToDevice));
     // std::cout << "Input data copied to device." << std::endl;
     // Generate the filter coefficients on the host using PFB_CPU and copy them to the device
+    int half_filter_length = (filter_length + 1) / 2; // ceil division handles both even/odd lengths
     std::vector<T> win_coeffs = windowing::generate_win_coeffs<T>(n_taps, n_chan);  // n_taps and n_chan known here as they were initialized in the constructor and are private members of the class
     cudaHostRegister(win_coeffs.data(), win_coeffs.size() * sizeof(T), cudaHostRegisterDefault);
-    CUDA_CHECK(cudaMemcpy(d_coeffs, win_coeffs.data(), filter_length * sizeof(T), cudaMemcpyHostToDevice));
+    CUDA_CHECK(cudaMemcpy(d_coeffs, win_coeffs.data(), half_filter_length * sizeof(T), cudaMemcpyHostToDevice));
     // std::cout << "Filter coefficients copied to device." << std::endl;
     cudaHostUnregister(win_coeffs.data());
 
@@ -164,7 +164,7 @@ void PFB<T>::FIR(std::complex<T>* h_inputData) {
     //           << "), Block(" << blockDim.x << ", 1)" << std::endl;
 
     // Launch the FIR convolution kernel
-    FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData, d_coeffs, d_outputDataComplex, n_taps, n_chan, n_time_blocks);
+    FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData, d_coeffs, d_outputDataComplex, n_taps, n_chan, n_time_blocks, filter_length);
 
     // ---> ADD THIS TO WAIT FOR FIR TO FINISH <---
     CUDA_CHECK(cudaDeviceSynchronize());

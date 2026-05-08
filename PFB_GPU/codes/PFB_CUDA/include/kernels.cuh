@@ -34,7 +34,7 @@ __device__ inline T my_real_fma(const T& signal, T scalar, const T& sum) {
 
 // --- FIR convolution kernel ---
 template <typename T>
-__global__ void FIR_convolution(cuda::std::complex<T>* d_inputData, T* d_coeffs, cuda::std::complex<T>* d_outputData, int n_taps, int n_chan, int num_time_blocks) {
+__global__ void FIR_convolution(cuda::std::complex<T>* d_inputData, T* d_coeffs, cuda::std::complex<T>* d_outputData, int n_taps, int n_chan, int num_time_blocks, int filter_length) {
 
     // Channel index
     int i_chan = threadIdx.x + blockIdx.y * blockDim.x; // Calculate the channel index based on the thread and block indices
@@ -51,12 +51,17 @@ __global__ void FIR_convolution(cuda::std::complex<T>* d_inputData, T* d_coeffs,
         int output_idx = t_chan + i_chan; // Calculate the index for the output data based on the time block and channel indices
         for (int i_tap = 0; i_tap < n_taps; ++i_tap){
             int chan_tap = n_chan * i_tap;
-            int input_idx = output_idx + chan_tap; // Calculate the index for the input data based on the time block, channel, and tap indices
-            int window_idx = i_chan + chan_tap; // Calculate the index for the filter coefficients based on the channel and tap indices
-            // POSSIBLE OPTIMISATION: SYMMETRIC COEFFICIENTS CAN BE EXPLOITED TO HALVE THE NUMBER OF MULTIPLICATIONS, BUT THIS IS NOT IMPLEMENTED YET.
-            local_sum = my_complex_fma(d_inputData[input_idx], d_coeffs[window_idx], local_sum); // Perform the convolution by multiplying the input data with filter coeffs and summing.
+            int input_idx = output_idx + chan_tap; 
+            
+            // Standard 1D index
+            int window_idx = i_chan + chan_tap; 
+            
+            // Fold the index over the center point using sym_window_idx.
+            // Using min() avoids an 'if' statement, preventing warp divergence!
+            int sym_window_idx = min(window_idx, filter_length - 1 - window_idx);    
+            local_sum = my_complex_fma(d_inputData[input_idx], d_coeffs[sym_window_idx], local_sum); 
         }
-        d_outputData[output_idx] = local_sum; // Store the final convolution result in the output data array at the calculated output index, DO NOT OVERWRITE THE INPUT DATA
+        d_outputData[output_idx] = local_sum; 
     }
 }
 
