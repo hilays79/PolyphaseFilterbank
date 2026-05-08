@@ -35,6 +35,7 @@ std::vector<std::complex<T>> filtering(std::vector<std::complex<T>>& signal, int
     }
     
     auto e_end = std::chrono::high_resolution_clock::now();
+    std::cout << "CPP_FIR_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
     exec_time += std::chrono::duration<double>(e_end - e_start).count();
 
     return filtered_signal;
@@ -63,6 +64,7 @@ void FFT(std::vector<std::complex<T>>& filtered_signal, int n_taps, int n_chan, 
     FFTWWrapper<T>::execute(plan);
     
     auto e_end = std::chrono::high_resolution_clock::now();
+    std::cout << "CPP_FFT_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
     exec_time += std::chrono::duration<double>(e_end - e_start).count();
 
     FFTWWrapper<T>::destroy_plan(plan);
@@ -93,6 +95,7 @@ std::vector<T> PSD(std::vector<std::complex<T>>& x_pfb, int n_taps, int n_chan, 
     }
     
     auto e_end = std::chrono::high_resolution_clock::now();
+    std::cout << "CPP_PSD_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
     exec_time += std::chrono::duration<double>(e_end - e_start).count();
 
     return psd;
@@ -104,12 +107,15 @@ std::vector<T> PFB_filterbank(std::vector<std::complex<T>>& signal, int n_taps, 
     double setup_time = 0.0;
     double exec_time = 0.0;
 
+    std::cout << "CPP PFB initialized with M=" << n_taps << ", N=" << n_chan << ", W=" << n_windows << std::endl;
+
     std::vector<std::complex<T>> filtered_signal = filtering<T>(signal, n_taps, n_chan, n_windows, setup_time, exec_time);
     FFT<T>(filtered_signal, n_taps, n_chan, n_windows, setup_time, exec_time); 
     std::vector<T> psd = PSD<T>(filtered_signal, n_taps, n_chan, n_windows, n_integrations, setup_time, exec_time);
 
     std::cout << "CPP_SETUP_TIME:" << setup_time << "\n";
     std::cout << "CPP_EXEC_TIME:" << exec_time << "\n";
+    std::cout << "==================================\n";
 
     return psd;
 }
