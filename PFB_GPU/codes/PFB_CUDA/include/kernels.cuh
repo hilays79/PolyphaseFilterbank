@@ -47,11 +47,12 @@ __global__ void FIR_convolution(cuda::std::complex<T>* d_inputData, T* d_coeffs,
         // It is preferred to use a local variable for the accumulation of the convolution sum for each output element, as it avoids potential
         // access to the VRAM which contains the output data inside the loop.
         cuda::std::complex<T> local_sum(0.0, 0.0); // Initialize a local variable to accumulate the convolution sum for the current output element
-        int output_idx = i_t * n_chan + i_chan; // Calculate the index for the output data based on the time block and channel indices
+        int t_chan = i_t * n_chan;
+        int output_idx = t_chan + i_chan; // Calculate the index for the output data based on the time block and channel indices
         for (int i_tap = 0; i_tap < n_taps; ++i_tap){
-            int input_idx = i_t * n_chan + i_chan + n_chan * i_tap; // Calculate the index for the input data based on the time block, channel, and tap indices
-            int window_idx = i_chan + n_chan * i_tap; // Calculate the index for the filter coefficients based on the channel and tap indices
-            // POSSIBLE OPTIMISATION: NEW VARIABLES FOR n_chan * i_tap and i_t * n_chan to reduce number of multiplications
+            int chan_tap = n_chan * i_tap;
+            int input_idx = output_idx + chan_tap; // Calculate the index for the input data based on the time block, channel, and tap indices
+            int window_idx = i_chan + chan_tap; // Calculate the index for the filter coefficients based on the channel and tap indices
             // POSSIBLE OPTIMISATION: SYMMETRIC COEFFICIENTS CAN BE EXPLOITED TO HALVE THE NUMBER OF MULTIPLICATIONS, BUT THIS IS NOT IMPLEMENTED YET.
             local_sum = my_complex_fma(d_inputData[input_idx], d_coeffs[window_idx], local_sum); // Perform the convolution by multiplying the input data with filter coeffs and summing.
         }
@@ -66,14 +67,15 @@ __global__ void PSD_integration(cuda::std::complex<T>* d_inputData, T* d_outputD
     int i_chan = threadIdx.x + blockIdx.y * blockDim.x; // Calculate the channel index based on the thread and block indices
     // Integrated Time block index
     int i_t = blockIdx.x;
-    int output_idx = i_t * n_chan + i_chan; // Calculate the index for the output data based on the time block and channel indices
+    int t_chan = i_t * n_chan;
+    int input_jump = num_integrated_time_blocks * n_chan;
+    int output_idx = t_chan + i_chan; // Calculate the index for the output data based on the time block and channel indices
     T local_sum = 0.0; // Initialize a local variable to accumulate the sum for the current integrated output element
     // Implementation for PSD integration kernel
     if (output_idx < num_integrated_time_blocks * n_chan) { // Check if the output index is within bounds for the integrated output data
     for (int i_integration = 0; i_integration < n_integrations; ++i_integration) {
         // Calculate the index for the output data based on the integration index and the output length       
-        int input_idx = output_idx + i_integration * (num_integrated_time_blocks * n_chan); // Calculate the index for the input data based on the output index and integration index
-        // POSSIBLE OPTIMISATION: Pool input_index and output_idx and the multiplication together.
+        int input_idx = output_idx + i_integration * input_jump; // Calculate the index for the input data based on the output index and integration index
 
         // Extract real and imaginary components
         T real_part = d_inputData[input_idx].real();

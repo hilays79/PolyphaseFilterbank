@@ -287,8 +287,8 @@ if __name__ == "__main__":
     
     in_NBIT_python = 64
     out_NBIT_python = 64 
-    in_NBIT_cpp = 64
-    out_NBIT_cpp = 64
+    in_NBIT_cpp = 32
+    out_NBIT_cpp = 32
     
     # Easily toggle Python execution on or off here
     run_python_baseline = True
