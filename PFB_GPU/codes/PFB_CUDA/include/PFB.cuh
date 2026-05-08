@@ -139,9 +139,10 @@ void PFB<T>::FIR(std::complex<T>* h_inputData) {
     // std::cout << "Input data copied to device." << std::endl;
     // Generate the filter coefficients on the host using PFB_CPU and copy them to the device
     std::vector<T> win_coeffs = windowing::generate_win_coeffs<T>(n_taps, n_chan);  // n_taps and n_chan known here as they were initialized in the constructor and are private members of the class
-    // POSSIBLE OPTIMISATION:
+    cudaHostRegister(win_coeffs.data(), win_coeffs.size() * sizeof(T), cudaHostRegisterDefault);
     CUDA_CHECK(cudaMemcpy(d_coeffs, win_coeffs.data(), filter_length * sizeof(T), cudaMemcpyHostToDevice));
     // std::cout << "Filter coefficients copied to device." << std::endl;
+    cudaHostUnregister(win_coeffs.data());
 
     auto s_end = std::chrono::high_resolution_clock::now();
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
