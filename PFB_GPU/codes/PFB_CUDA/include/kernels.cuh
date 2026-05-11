@@ -65,6 +65,35 @@ __global__ void FIR_convolution(const cuda::std::complex<T>* __restrict__ d_inpu
     }
 }
 
+// --- FIR atomic convolution kernel: This implementation is inspired by the Curtin group's PFB implementation ---
+
+template <typename T>
+__global__ void FIR_atomic_convolution(const cuda::std::complex<T>* __restrict__ d_inputData, const T* __restrict__ d_coeffs, cuda::std::complex<T>* d_outputData, int n_taps, int n_chan, int num_time_blocks, int filter_length) {
+    // Channel index
+    int i_chan = threadIdx.x + blockIdx.y * blockDim.x; // Calculate the channel index based on the thread and block indices
+    // Time block index
+    int i_t = blockIdx.x;
+    // Tap index
+    int i_tap = blockIdx.z; // Each block in the z-dimension correponds to a different tap.
+    int t_chan = i_t * n_chan;
+    int output_idx = t_chan + i_chan; // Calculate the index for the output data based on the time block and channel indices, it is kept the same so that each thread is responsible for updating the same output element across all taps.
+    int chan_tap = n_chan * i_tap;
+    int input_idx = output_idx + chan_tap; // Calculate the index for the input
+    int window_idx = i_chan + chan_tap; // Calculate the index for the filter coefficient
+    // Check if the channel index is within bounds
+    if (i_chan < n_chan && i_t < num_time_blocks && i_tap < n_taps) {
+        // Calculate the symmetric window index for the filter coefficient
+        int sym_window_idx = min(window_idx, filter_length - 1 - window_idx);
+        // since atomicAdd works for real numbers, multiplication done separately for real and imaginary parts of the signal.
+        T out_real = d_inputData[input_idx].real() * d_coeffs[sym_window_idx];
+        T out_imag = d_inputData[input_idx].imag() * d_coeffs[sym_window_idx];
+        T* out_ptr = reinterpret_cast<T*>(&d_outputData[output_idx]); // Get a pointer to the real and imaginary parts of the output data at the calculated output index
+        atomicAdd(&out_ptr[0], out_real); // Atomically add the real part of the product to the real part of the output data at the calculated output index
+        atomicAdd(&out_ptr[1], out_imag); // Atomically add the imaginary part of the product to the imaginary part of the output data at the calculated output index
+    }
+}
+
+
 // --- PSD integration kernel ---
 template <typename T>
 __global__ void PSD_integration(cuda::std::complex<T>* d_inputData, T* d_outputData, int n_integrations, int n_chan, int num_time_blocks, int num_integrated_time_blocks) {
