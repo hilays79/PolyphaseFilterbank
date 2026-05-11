@@ -10,6 +10,7 @@ import PFB
 import sys
 import io
 import matplotlib.pyplot as plt
+from matplotlib.colors import LogNorm
 
 # Dynamically find the repo root
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -279,6 +280,207 @@ def benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cp
     plt.savefig('images/benchmark_scaling_plots_{}_{}_{}_{}_optimised.png'.format(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp), dpi=300)
     plt.show()
 
+def run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic):
+    """
+    Runs the CUDA PFB executable and extracts performance metrics.
+    """
+    cuda_executable = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build", "PFB_app")
+    cuda_build_dir = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build")
+
+    atomic_flag = "1" if atomic else "0"
+
+    cmd = [
+        cuda_executable,
+        str(W),
+        str(in_NBIT_cpp),
+        str(out_NBIT_cpp),
+        "1",  
+        str(M),
+        str(P),
+        atomic_flag
+    ]
+
+    result = subprocess.run(cmd, cwd=cuda_build_dir, capture_output=True, text=True)
+
+    gpu_setup = None
+    gpu_exec = None
+    max_diff = None
+
+    for line in result.stdout.split('\n'):
+        line = line.strip()
+        if line.startswith("GPU_SETUP_TIME:"):
+            gpu_setup = float(line.split(":")[1].strip())
+        elif line.startswith("GPU_EXEC_TIME:"):
+            gpu_exec = float(line.split(":")[1].strip())
+        elif line.startswith("Max Diff:"): 
+            max_diff = float(line.split(":")[1].strip())
+
+    if None in (gpu_setup, gpu_exec, max_diff):
+        print(f"Error parsing CUDA output for W={W}, atomic={atomic}.")
+        print("--- STDERR ---")
+        print(result.stderr)
+        print("--- STDOUT ---")
+        print(result.stdout)
+    
+    return gpu_setup, gpu_exec, max_diff
+
+
+def run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic):
+    """
+    Runs the CUDA PFB executable and extracts performance metrics.
+    """
+    cuda_executable = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build", "PFB_app")
+    cuda_build_dir = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build")
+
+    atomic_flag = "1" if atomic else "0"
+
+    cmd = [
+        cuda_executable,
+        str(W),
+        str(in_NBIT_cpp),
+        str(out_NBIT_cpp),
+        "1",  
+        str(M),
+        str(P),
+        atomic_flag
+    ]
+
+    result = subprocess.run(cmd, cwd=cuda_build_dir, capture_output=True, text=True)
+
+    gpu_setup = None
+    gpu_exec = None
+    max_diff = None
+
+    for line in result.stdout.split('\n'):
+        line = line.strip()
+        if line.startswith("GPU_SETUP_TIME:"):
+            gpu_setup = float(line.split(":")[1].strip())
+        elif line.startswith("GPU_EXEC_TIME:"):
+            gpu_exec = float(line.split(":")[1].strip())
+        elif line.startswith("Max Diff:"): 
+            max_diff = float(line.split(":")[1].strip())
+
+    if None in (gpu_setup, gpu_exec, max_diff):
+        print(f"Error parsing CUDA output for W={W}, atomic={atomic}.")
+        print("--- STDERR ---")
+        print(result.stderr)
+        print("--- STDOUT ---")
+        print(result.stdout)
+    
+    return gpu_setup, gpu_exec, max_diff
+
+
+def benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp):
+    """Runs benchmarks varying n_taps, n_chan_out, and chunk_size while keeping data size constant."""
+    M_values = [1, 2, 4, 8, 16, 32, 64]
+    P_values = [32, 64, 128, 256, 512, 1024, 2048]
+    # M_values = [1, 2]
+    # P_values = [32, 64]
+    chunk_sizes = [100/2**13, 100/2**12, 100/2**11, 100/2**10] 
+    
+    # Constants required for input file generation
+    freq = 1.0
+    signal_type = "complex_phasors"
+    delta_period, delta_start = 257, 0
+    include_noise = False
+
+    num_P = len(P_values)
+    num_M = len(M_values)
+    num_chunks = len(chunk_sizes)
+    
+    # Arrays to hold the three metrics: dimensions (P, M, chunks, Yours(0)/Curtin(1))
+    setup_results = np.zeros((num_P, num_M, num_chunks, 2)) 
+    exec_results = np.zeros((num_P, num_M, num_chunks, 2)) 
+    diff_results = np.zeros((num_P, num_M, num_chunks, 2)) 
+
+    for c_idx, c in enumerate(chunk_sizes):
+        print(f"\n--- Benchmarking with chunk_size={c:.4f} GB ---")
+        for m_idx, M in enumerate(M_values):
+            for p_idx, P in enumerate(P_values):
+                # Calculate W to keep data size constant
+                W = int((c * (1024**3 * 8)) / (M * P * in_NBIT_cpp))
+                print(f"Testing M={M}, P={P}, calculated W={W} for chunk size {c:.4f} GB")
+                if W == 0:
+                    setup_results[p_idx, m_idx, c_idx, :] = np.nan
+                    exec_results[p_idx, m_idx, c_idx, :] = np.nan
+                    diff_results[p_idx, m_idx, c_idx, :] = np.nan
+                    continue
+
+                # Ensure the correct input file is generated
+                freq_str = str(freq)
+                if '.' not in freq_str:
+                    freq_str += '.0'
+                filenamestart = f"{signal_type}_freq{freq_str}_M{M}_P{P}_W{W}_noise{include_noise}"
+                input_filepath_cpp = os.path.join(REPO_ROOT, "Data", "input_files", signal_type, f"{in_NBIT_cpp}-bit", f"{filenamestart}.dada")    
+                
+                if not os.path.exists(input_filepath_cpp):
+                    gbd.create_binary_test_signals(n_taps=M, n_chan=P, n_windows=W, freq=freq, delta_period=delta_period, delta_start=delta_start, in_NBIT=in_NBIT_cpp, include_noise=include_noise, signal_type=signal_type)
+
+                # Run Yours (Non-Atomic)
+                your_setup, your_exec, your_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic=False)
+                
+                # Run Curtin (Atomic)
+                curtin_setup, curtin_exec, curtin_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic=True)
+
+                # Record times: index 0 is Yours, index 1 is Curtin
+                setup_results[p_idx, m_idx, c_idx, 0], setup_results[p_idx, m_idx, c_idx, 1] = your_setup, curtin_setup
+                exec_results[p_idx, m_idx, c_idx, 0], exec_results[p_idx, m_idx, c_idx, 1] = your_exec, curtin_exec
+                diff_results[p_idx, m_idx, c_idx, 0], diff_results[p_idx, m_idx, c_idx, 1] = your_diff, curtin_diff
+                
+    # --- Inner Helper Function to Plot the 2x4 Grids ---
+    def plot_metric_grid(data_array, title, colorbar_label, save_label):
+        fig, axs = plt.subplots(2, 4, figsize=(18, 9), constrained_layout=True)
+        fig.suptitle(title, fontsize=18)
+
+        # Calculate global min and max for consistent color scaling across all subplots
+        valid_data = data_array[~np.isnan(data_array)]
+        if len(valid_data) > 0:
+            vmin = np.nanmin(valid_data)*0.8
+            vmax = np.nanmax(valid_data)*1.2
+            # LogNorm requires strictly positive values
+            if vmin <= 0:
+                positive_data = valid_data[valid_data > 0]
+                vmin = np.nanmin(positive_data) if len(positive_data) > 0 else 1e-15
+                vmax = max(vmax, vmin * 10) # Ensure vmax is strictly greater than vmin
+        else:
+            vmin, vmax = 1e-3, 1.0 # Fallback if all data is NaN
+
+        for row in range(2):
+            execution_type = "Non-Atomic" if row == 0 else "Atomic (Curtin)"
+            
+            for col in range(4):
+                ax = axs[row, col]
+                data = data_array[:, :, col, row]
+                
+                # Apply the globally calculated vmin and vmax
+                im = ax.pcolormesh(data, cmap='viridis', shading='auto', norm=LogNorm(vmin=vmin, vmax=vmax))
+                
+                # Setup Axes Ticks
+                ax.set_yticks(np.arange(num_P) + 0.5)
+                ax.set_xticks(np.arange(num_M) + 0.5)
+                ax.set_yticklabels(P_values)
+                ax.set_xticklabels(M_values)
+                
+                # Labels and Titles
+                if row == 1: 
+                    ax.set_xlabel('Number of Taps (M)', fontsize=12)
+                if col == 0: 
+                    ax.set_ylabel('Output Channels (P)', fontsize=12)
+                    
+                ax.set_title(f"{execution_type}\nChunk Size: {chunk_sizes[col]:.4f} GB", fontsize=13)
+                
+                # Add a shared colorbar to the right side of the entire grid
+                if row == 1 and col == 3:
+                     fig.colorbar(im, ax=axs[:, :], orientation='vertical', label=colorbar_label, fraction=0.046, pad=0.04)
+
+        plt.savefig("images/grid_benchmark_{}_{}_{}.png".format(save_label, in_NBIT_cpp, out_NBIT_cpp), dpi=300, bbox_inches='tight')
+
+    # Create the three plots sequentially
+    plot_metric_grid(setup_results, "GPU Setup Time Benchmark", "Setup Time (s)", "setup")
+    plot_metric_grid(exec_results, "GPU Execution Time Benchmark", "Execution Time (s)", "execution")
+    plot_metric_grid(diff_results, "Maximum Precision Difference (C++ vs GPU)", "Max Diff", "difference")
+                
+
 if __name__ == "__main__":
     M, P, W, freq = 4, 256, 100, 1
     delta_period, delta_start = 257, 0
@@ -294,4 +496,5 @@ if __name__ == "__main__":
     run_python_baseline = True
     
     # Now call the plotting function instead of run_benchmark directly
-    benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
+    # benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
+    benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)

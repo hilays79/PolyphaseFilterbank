@@ -33,6 +33,7 @@ class PFB {
         int n_chan; // number of channels in the output
         int n_windows; // number of windows in the input data
         int n_integrations; // number of integrations for the PSD stage
+        bool atomic; // whether to perform an atomic kernel or not
         int filter_length; // total length of the filter coefficients array (M*N)
         int input_length; // total length of the input data array (M*W*N)
         int output_length; // total length of the output data array ((M*W - M + 1)*N)
@@ -55,7 +56,7 @@ class PFB {
         cufftType fft_type;  // variable to hold the type of FFT plan (CUFFT_C2C for single precision, CUFFT_Z2Z for double precision)
     public:
         // Constructor and destructor
-        PFB(int M, int N, int W, int n_integrations);  // Constructor to initialize the PFB parameters and allocate memory on the device
+        PFB(int M, int N, int W, int n_integrations, bool atomic);  // Constructor to initialize the PFB parameters and allocate memory on the device
         ~PFB();  // Destructor to free the allocated memory on the device
 
         // Member functions for the PFB algorithm
@@ -72,7 +73,7 @@ class PFB {
 
 // --- IMPLEMENTATION OF CONSTRUCTOR AND DESTRUCTOR START ---
 template <typename T>
-PFB<T>::PFB(int M, int N, int W, int n_integrations) : n_taps(M), n_chan(N), n_windows(W), n_integrations(n_integrations), setup_time(0.0), exec_time(0.0) // Initialize the PFB parameters through the constructor initializer list (the command after the closing parenthesis of the constructor parameters)
+PFB<T>::PFB(int M, int N, int W, int n_integrations, bool atomic) : n_taps(M), n_chan(N), n_windows(W), n_integrations(n_integrations), atomic(atomic), setup_time(0.0), exec_time(0.0) // Initialize the PFB parameters through the constructor initializer list (the command after the closing parenthesis of the constructor parameters)
 { 
     auto s_start = std::chrono::high_resolution_clock::now(); // START SETUP TIMING
     // The following variables are assignments of the private variables in the body; thus, they are not in the initializer list.
@@ -147,30 +148,65 @@ void PFB<T>::FIR(std::complex<T>* h_inputData) {
     auto s_end = std::chrono::high_resolution_clock::now();
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
 
-    // --- 2. EXECUTION PHASE: Moving data and running the kernel ---
-    auto e_start = std::chrono::high_resolution_clock::now();
-    // --- Setting up the kernel launch parameters ---
-    int threadsPerBlock = std::min(n_chan, 1024); // Number of threads per block, do not exceed 1024 threads per block if n_chan is large.
 
-    dim3 blockDim(threadsPerBlock); // 1D thread block dimension based on the number of threads per block
+    if (atomic) {
+        std::cout << "atomic kernel..." << std::endl;
+        // --- 2.2 EXECUTION PHASE: Moving data and running the kernel: Atomic Kernel (each thread performs 1 operation) ---
+        auto e_start = std::chrono::high_resolution_clock::now();
+        // --- Setting up the kernel launch parameters ---
+        int threadsPerBlock = std::min(n_chan, 1024); // Number of threads per block, do not exceed 1024 threads per block if n_chan is large.
 
-    int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); // Calculate the number of blocks needed in the x-dimension of the grid based on the number of channels and threads per block
-    int numGridBlocks_y = n_time_blocks; // Number of blocks needed in the y-dimension of the grid is equal to the number of time blocks in the output data
+        dim3 blockDim(threadsPerBlock); // 1D thread block dimension based on the number of threads per block
 
-    dim3 gridDim(numGridBlocks_y, numGridBlocks_x); // 2D grid dimension based on the number of blocks needed in the x and y dimensions
-    // NOTE: dimensions inverted here so x-axis dimension of grid corresponds to time, because it can handle more values.
+        int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); // Calculate the number of blocks needed in the x-dimension of the grid based on the number of channels and threads per block
+        int numGridBlocks_y = n_time_blocks; // Number of blocks needed in the y-dimension of the grid is equal to the number of time blocks in the output data
+
+        dim3 gridDim(numGridBlocks_y, numGridBlocks_x, n_taps); // 3D grid dimension based on the number of blocks needed in the x and y and z dimensions
+        // NOTE: dimensions inverted here so x-axis dimension of grid corresponds to time, because it can handle more values.
+        
+        // std::cout << "Launching 2D FIR Kernel: Grid(" << gridDim.x << ", " << gridDim.y 
+        //           << "), Block(" << blockDim.x << ", 1)" << std::endl;
+
+        // Set the output array to zero before atomic accumulation
+        CUDA_CHECK(cudaMemset(d_outputDataComplex, 0, output_length * sizeof(cuda::std::complex<T>)));
+
+        // Launch the FIR convolution kernel
+        FIR_atomic_convolution<T><<<gridDim, blockDim>>>(d_inputData, d_coeffs, d_outputDataComplex, n_taps, n_chan, n_time_blocks, filter_length);
+        // ---> ADD THIS TO WAIT FOR FIR TO FINISH <---
+        CUDA_CHECK(cudaDeviceSynchronize());
+        auto e_end = std::chrono::high_resolution_clock::now();
+        std::cout << "GPU_FIR_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
+        exec_time += std::chrono::duration<double>(e_end - e_start).count();
+
+    } else {
+        std::cout << "non-atomic kernel..." << std::endl;
+        // --- 2.1 EXECUTION PHASE: Moving data and running the kernel: Normal Kernel (each thread performs n_tap operations) ---
+        auto e_start = std::chrono::high_resolution_clock::now();
+        // --- Setting up the kernel launch parameters ---
+        int threadsPerBlock = std::min(n_chan, 1024); // Number of threads per block, do not exceed 1024 threads per block if n_chan is large.
+
+        dim3 blockDim(threadsPerBlock); // 1D thread block dimension based on the number of threads per block
+
+        int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); // Calculate the number of blocks needed in the x-dimension of the grid based on the number of channels and threads per block
+        int numGridBlocks_y = n_time_blocks; // Number of blocks needed in the y-dimension of the grid is equal to the number of time blocks in the output data
+
+        dim3 gridDim(numGridBlocks_y, numGridBlocks_x); // 2D grid dimension based on the number of blocks needed in the x and y dimensions
+        // NOTE: dimensions inverted here so x-axis dimension of grid corresponds to time, because it can handle more values.
+        
+        // std::cout << "Launching 2D FIR Kernel: Grid(" << gridDim.x << ", " << gridDim.y 
+        //           << "), Block(" << blockDim.x << ", 1)" << std::endl;
+
+        // Launch the FIR convolution kernel
+        FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData, d_coeffs, d_outputDataComplex, n_taps, n_chan, n_time_blocks, filter_length);
+        // ---> ADD THIS TO WAIT FOR FIR TO FINISH <---
+        CUDA_CHECK(cudaDeviceSynchronize());
+        auto e_end = std::chrono::high_resolution_clock::now();
+        std::cout << "GPU_FIR_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
+        exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    }
     
-    // std::cout << "Launching 2D FIR Kernel: Grid(" << gridDim.x << ", " << gridDim.y 
-    //           << "), Block(" << blockDim.x << ", 1)" << std::endl;
 
-    // Launch the FIR convolution kernel
-    FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData, d_coeffs, d_outputDataComplex, n_taps, n_chan, n_time_blocks, filter_length);
 
-    // ---> ADD THIS TO WAIT FOR FIR TO FINISH <---
-    CUDA_CHECK(cudaDeviceSynchronize());
-    auto e_end = std::chrono::high_resolution_clock::now();
-    std::cout << "GPU_FIR_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
-    exec_time += std::chrono::duration<double>(e_end - e_start).count();
 }
 
 template <typename T>
