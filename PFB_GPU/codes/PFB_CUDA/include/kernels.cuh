@@ -34,7 +34,7 @@ __device__ inline T my_real_fma(const T& signal, T scalar, const T& sum) {
 
 // --- FIR convolution kernel ---
 template <typename T>
-__global__ void FIR_convolution(cuda::std::complex<T>* d_inputData, T* d_coeffs, cuda::std::complex<T>* d_outputData, int n_taps, int n_chan, int num_time_blocks, int filter_length) {
+__global__ void FIR_convolution(const cuda::std::complex<T>* __restrict__ d_inputData, const T* __restrict__ d_coeffs, cuda::std::complex<T>* d_outputData, int n_taps, int n_chan, int num_time_blocks, int filter_length) {
 
     // Channel index
     int i_chan = threadIdx.x + blockIdx.y * blockDim.x; // Calculate the channel index based on the thread and block indices
@@ -58,7 +58,7 @@ __global__ void FIR_convolution(cuda::std::complex<T>* d_inputData, T* d_coeffs,
             
             // Fold the index over the center point using sym_window_idx.
             // Using min() avoids an 'if' statement, preventing warp divergence!
-            int sym_window_idx = min(window_idx, filter_length - 1 - window_idx);    
+            int sym_window_idx = min(window_idx, filter_length - 1 - window_idx); 
             local_sum = my_complex_fma(d_inputData[input_idx], d_coeffs[sym_window_idx], local_sum); 
         }
         d_outputData[output_idx] = local_sum; 
