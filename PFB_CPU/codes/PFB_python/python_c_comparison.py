@@ -280,103 +280,13 @@ def benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cp
     plt.savefig('images/benchmark_scaling_plots_{}_{}_{}_{}_optimised.png'.format(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp), dpi=300)
     plt.show()
 
-def run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic):
-    """
-    Runs the CUDA PFB executable and extracts performance metrics.
-    """
-    cuda_executable = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build", "PFB_app")
-    cuda_build_dir = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build")
-
-    atomic_flag = "1" if atomic else "0"
-
-    cmd = [
-        cuda_executable,
-        str(W),
-        str(in_NBIT_cpp),
-        str(out_NBIT_cpp),
-        "1",  
-        str(M),
-        str(P),
-        atomic_flag
-    ]
-
-    result = subprocess.run(cmd, cwd=cuda_build_dir, capture_output=True, text=True)
-
-    gpu_setup = None
-    gpu_exec = None
-    max_diff = None
-
-    for line in result.stdout.split('\n'):
-        line = line.strip()
-        if line.startswith("GPU_SETUP_TIME:"):
-            gpu_setup = float(line.split(":")[1].strip())
-        elif line.startswith("GPU_EXEC_TIME:"):
-            gpu_exec = float(line.split(":")[1].strip())
-        elif line.startswith("Max Diff:"): 
-            max_diff = float(line.split(":")[1].strip())
-
-    if None in (gpu_setup, gpu_exec, max_diff):
-        print(f"Error parsing CUDA output for W={W}, atomic={atomic}.")
-        print("--- STDERR ---")
-        print(result.stderr)
-        print("--- STDOUT ---")
-        print(result.stdout)
-    
-    return gpu_setup, gpu_exec, max_diff
-
-
-def run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic):
-    """
-    Runs the CUDA PFB executable and extracts performance metrics.
-    """
-    cuda_executable = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build", "PFB_app")
-    cuda_build_dir = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build")
-
-    atomic_flag = "1" if atomic else "0"
-
-    cmd = [
-        cuda_executable,
-        str(W),
-        str(in_NBIT_cpp),
-        str(out_NBIT_cpp),
-        "1",  
-        str(M),
-        str(P),
-        atomic_flag
-    ]
-
-    result = subprocess.run(cmd, cwd=cuda_build_dir, capture_output=True, text=True)
-
-    gpu_setup = None
-    gpu_exec = None
-    max_diff = None
-
-    for line in result.stdout.split('\n'):
-        line = line.strip()
-        if line.startswith("GPU_SETUP_TIME:"):
-            gpu_setup = float(line.split(":")[1].strip())
-        elif line.startswith("GPU_EXEC_TIME:"):
-            gpu_exec = float(line.split(":")[1].strip())
-        elif line.startswith("Max Diff:"): 
-            max_diff = float(line.split(":")[1].strip())
-
-    if None in (gpu_setup, gpu_exec, max_diff):
-        print(f"Error parsing CUDA output for W={W}, atomic={atomic}.")
-        print("--- STDERR ---")
-        print(result.stderr)
-        print("--- STDOUT ---")
-        print(result.stdout)
-    
-    return gpu_setup, gpu_exec, max_diff
-
-
 def benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp):
     """Runs benchmarks varying n_taps, n_chan_out, and chunk_size while keeping data size constant."""
     M_values = [1, 2, 4, 8, 16, 32, 64]
     P_values = [32, 64, 128, 256, 512, 1024, 2048]
     # M_values = [1, 2]
     # P_values = [32, 64]
-    chunk_sizes = [100/2**13, 100/2**12, 100/2**11, 100/2**10] 
+    chunk_sizes = [100/2**13, 100/2**12, 100/2**11, 100/2**10]
     
     # Constants required for input file generation
     freq = 1.0
@@ -417,10 +327,10 @@ def benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp):
                     gbd.create_binary_test_signals(n_taps=M, n_chan=P, n_windows=W, freq=freq, delta_period=delta_period, delta_start=delta_start, in_NBIT=in_NBIT_cpp, include_noise=include_noise, signal_type=signal_type)
 
                 # Run Yours (Non-Atomic)
-                your_setup, your_exec, your_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic=False)
+                your_setup, your_exec, your_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic=False, n_batches=1)
                 
                 # Run Curtin (Atomic)
-                curtin_setup, curtin_exec, curtin_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic=True)
+                curtin_setup, curtin_exec, curtin_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic=True, n_batches=1)
 
                 # Record times: index 0 is Yours, index 1 is Curtin
                 setup_results[p_idx, m_idx, c_idx, 0], setup_results[p_idx, m_idx, c_idx, 1] = your_setup, curtin_setup
@@ -480,6 +390,171 @@ def benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp):
     plot_metric_grid(exec_results, "GPU Execution Time Benchmark", "Execution Time (s)", "execution")
     plot_metric_grid(diff_results, "Maximum Precision Difference (C++ vs GPU)", "Max Diff", "difference")
                 
+def run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic, n_batches=1, verify_diff=True):
+    """
+    Runs the CUDA PFB executable and extracts performance metrics.
+    """
+    cuda_executable = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build", "PFB_app")
+    cuda_build_dir = os.path.join(REPO_ROOT, "PFB_GPU", "codes", "PFB_CUDA", "build")
+
+    atomic_flag = "1" if atomic else "0"
+
+    cmd = [
+        cuda_executable,
+        str(W),
+        str(in_NBIT_cpp),
+        str(out_NBIT_cpp),
+        "1",  
+        str(M),
+        str(P),
+        str(n_batches),
+        atomic_flag
+    ]
+
+    result = subprocess.run(cmd, cwd=cuda_build_dir, capture_output=True, text=True)
+
+    gpu_setup = None
+    gpu_exec = None
+    max_diff = None
+
+    for line in result.stdout.split('\n'):
+        line = line.strip()
+        if line.startswith("GPU_SETUP_TIME:"):
+            gpu_setup = float(line.split(":")[1].strip())
+        elif line.startswith("GPU_EXEC_TIME:"):
+            gpu_exec = float(line.split(":")[1].strip())
+        elif verify_diff and line.startswith("Max Diff:"): 
+            max_diff = float(line.split(":")[1].strip())
+
+    # Only check for max_diff if verify_diff is True
+    if gpu_setup is None or gpu_exec is None or (verify_diff and max_diff is None):
+        print(f"Error parsing CUDA output for W={W}, atomic={atomic}.")
+        print("--- STDERR ---")
+        print(result.stderr)
+        print("--- STDOUT ---")
+        print(result.stdout)
+    
+    return gpu_setup, gpu_exec, max_diff
+
+
+def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=True):
+    """
+    Runs benchmarks varying chunk_size and n_batches, holding M and P constant.
+    Plots a 1x3 (or 1x2) grid of Heatmaps for GPU Setup, GPU Exec, and optionally Max Diff.
+    """
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
+    import numpy as np
+    import os
+    
+    # Chunk sizes from 100/2**14 to 100/2**10
+    chunk_sizes_base = [100 / (2**i) for i in range(14, 6, -1)]
+    # Plotting x-axis requires 2x chunk size for complex data
+    plot_x = [c * 2 for c in chunk_sizes_base] 
+    
+    n_batches_vals = np.arange(1, 101)
+    
+    freq = 1.0
+    signal_type = "complex_phasors"
+    delta_period, delta_start = 257, 0
+    include_noise = False
+    atomic = False
+
+    num_chunks = len(chunk_sizes_base)
+    num_batches = len(n_batches_vals)
+
+    # Initialize result arrays
+    setup_results = np.zeros((num_batches, num_chunks))
+    exec_results = np.zeros((num_batches, num_chunks))
+    if verify_diff:
+        diff_results = np.zeros((num_batches, num_chunks))
+
+    print("\n=== Starting Batch vs Chunk Size Benchmark ===")
+    
+    for c_idx, c in enumerate(chunk_sizes_base):
+        # Calculate W to match the target chunk size memory footprint
+        W = int((c * (1024**3 * 8)) / (M * P * in_NBIT_cpp))
+        N_out_blocks_total = (M * W) - M + 1
+        
+        print(f"\nTesting Base Chunk: {c:.6f} GB | Plot X: {plot_x[c_idx]:.6f} GB | W={W}")
+        
+        if W <= 0:
+            setup_results[:, c_idx] = np.nan
+            exec_results[:, c_idx] = np.nan
+            if verify_diff:
+                diff_results[:, c_idx] = np.nan
+            continue
+
+        # Ensure the correct input file is generated
+        freq_str = str(freq) if '.' in str(freq) else f"{freq}.0"
+        filenamestart = f"{signal_type}_freq{freq_str}_M{M}_P{P}_W{W}_noise{include_noise}"
+        input_filepath_cpp = os.path.join(REPO_ROOT, "Data", "input_files", signal_type, f"{in_NBIT_cpp}-bit", f"{filenamestart}.dada")    
+        
+        if not os.path.exists(input_filepath_cpp):
+            gbd.create_binary_test_signals(n_taps=M, n_chan=P, n_windows=W, freq=freq, delta_period=delta_period, delta_start=delta_start, in_NBIT=in_NBIT_cpp, include_noise=include_noise, signal_type=signal_type)
+
+        for b_idx, b in enumerate(n_batches_vals):
+            # The executable will fail if n_batches > N_out_blocks_total, skip these cases
+            if b > N_out_blocks_total:
+                setup_results[b_idx, c_idx] = np.nan
+                exec_results[b_idx, c_idx] = np.nan
+                if verify_diff:
+                    diff_results[b_idx, c_idx] = np.nan
+                continue
+
+            g_setup, g_exec, max_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic, n_batches=b, verify_diff=verify_diff)
+            
+            setup_results[b_idx, c_idx] = g_setup
+            exec_results[b_idx, c_idx] = g_exec
+            if verify_diff:
+                diff_results[b_idx, c_idx] = max_diff
+            
+            # Print progress every 20 batches
+            if b % 20 == 0:
+                print(f"  Processed {b}/100 batches...")
+
+    # --- Plotting ---
+    num_plots = 3 if verify_diff else 2
+    fig, axs = plt.subplots(1, num_plots, figsize=(7 * num_plots, 6), constrained_layout=True)
+    fig.suptitle(f"PFB Scaling: Number of Batches vs. Complex Chunk Size (M={M}, P={P})", fontsize=16, fontweight='bold')
+
+    metrics = [
+        (setup_results, "GPU Setup Time (s)", "Setup Time (s)"),
+        (exec_results, "GPU Exec Time (s)", "Execution Time (s)")
+    ]
+    
+    if verify_diff:
+        metrics.append((diff_results, "Max Difference (C++ vs GPU)", "Max Diff"))
+
+    # If only 1 metric is ever passed, axs won't be iterable, but num_plots >= 2 guarantees it is an array.
+    for i, (data_array, title, cb_label) in enumerate(metrics):
+        ax = axs[i]
+        
+        # Calculate robust LogNorm limits ignoring NaNs and zeros
+        valid_data = data_array[~np.isnan(data_array)]
+        if len(valid_data) > 0:
+            positive_data = valid_data[valid_data > 0]
+            vmin = np.nanmin(positive_data) if len(positive_data) > 0 else 1e-10
+            vmax = np.nanmax(valid_data)
+            if vmax <= vmin: vmax = vmin * 10
+        else:
+            vmin, vmax = 1e-3, 1.0
+            
+        # Create X, Y grids for pcolormesh
+        X, Y = np.meshgrid(plot_x, n_batches_vals)
+        
+        im = ax.pcolormesh(X, Y, data_array, cmap='viridis', shading='nearest', norm=LogNorm(vmin=vmin, vmax=vmax))
+        
+        ax.set_title(title, fontsize=14)
+        ax.set_xlabel("Complex Data Chunk Size (GB)", fontsize=12)
+        ax.set_ylabel("Number of Batches", fontsize=12)
+        ax.set_xscale('log')
+        
+        fig.colorbar(im, ax=ax, label=cb_label)
+
+    plt.savefig(f"images/benchmark_batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png", dpi=300)
+    print("\nPlot saved to images/benchmark_batch_chunk_{}_{}.png".format(in_NBIT_cpp, out_NBIT_cpp))
+    plt.show()
 
 if __name__ == "__main__":
     M, P, W, freq = 4, 256, 100, 1
@@ -489,12 +564,13 @@ if __name__ == "__main__":
     
     in_NBIT_python = 64
     out_NBIT_python = 64 
-    in_NBIT_cpp = 64
-    out_NBIT_cpp = 64
+    in_NBIT_cpp = 32
+    out_NBIT_cpp = 32
     
     # Easily toggle Python execution on or off here
     run_python_baseline = True
     
     # Now call the plotting function instead of run_benchmark directly
     # benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
-    benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)
+    # benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)
+    benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=False)

@@ -3,16 +3,16 @@
 
 #pragma once
 #include <iostream>
+#include <vector>
 #include <cuda/std/complex>
 #include <cuda_runtime_api.h>
 #include <cuda/cmath>
 #include "dsp.hpp"
-#include "kernels.cuh" // Include the header file for CUDA kernels, as they cannot be members of a class
+#include "kernels.cuh" 
 #include <chrono>
-#include <type_traits> // Required for checking float vs double in FFT plan
-#include <cufft.h>     // The cuFFT library
+#include <type_traits> 
+#include <cufft.h>     
 
-// macro for catching allocation errors
 #define CUDA_CHECK(expr_to_check) do { \
     cudaError_t result = (expr_to_check); \
     if (result != cudaSuccess) { \
@@ -22,266 +22,257 @@
     } \
 } while (0)
 
-// Class declaration. T will either be float or double depending on the precision asked for in main.cu
 template <typename T>
 class PFB {
     private:
-        // While these parameters are private, they can be initialized through the constructor and accessed through public getter functions if needed.
-        // Kept private to not alter them accidentally after initialization, as they are fundamental to the functioning of the PFB algorithm.
-        // PFB parameters
-        int n_taps; // number of taps in the filter
-        int n_chan; // number of channels in the output
-        int n_windows; // number of windows in the input data
-        int n_integrations; // number of integrations for the PSD stage
-        bool atomic; // whether to perform an atomic kernel or not
-        int filter_length; // total length of the filter coefficients array (M*N)
-        int input_length; // total length of the input data array (M*W*N)
-        int output_length; // total length of the output data array ((M*W - M + 1)*N)
-        int output_integrated_length; // total length of the integrated output data array, which will be the final output of the PFB algorithm after the PSD stage (output_length / n_integrations)
-        // Necessary pointers for the filter coefficients and the input data, they will only be initialised on the device.
-        T* d_coeffs; // filter coefficients (real-valued)
-        cuda::std::complex<T>* d_inputData; // input data (complex-valued)
-        cuda::std::complex<T>* d_outputDataComplex; // output data (complex-valued): to be used for FIR, FFT stages
-        T* d_outputDataReal; // output data (real-valued) to be used for the final PSD output after the completion of the PFB algorithm
+        int n_taps; 
+        int n_chan; 
+        int n_windows; 
+        int n_integrations; 
+        bool atomic; 
+        int n_batches; 
+        
+        int filter_length; 
+        
+        // --- Batch Tracking Variables ---
+        int N_input_time_blocks;     
+        int N_out_blocks_total;      
+        int N_out_blocks_batch;      
+        int N_in_blocks_batch;       
+        int i_batch_max; 
+        
+        int input_length; 
+        int output_length; 
+        
+        int valid_output_length; 
+        
+        int n_time_blocks; 
 
-        int n_time_blocks; // number of time blocks in the output data, calculated based on the input signal length and the number of taps, used for setting up kernel launch parameters
-        int n_integrated_time_blocks; // number of time blocks in the integrated output data
+        T* d_coeffs; 
+        cuda::std::complex<T>* d_inputData; 
+        cuda::std::complex<T>* d_outputDataComplex; 
+        T* d_outputDataReal; 
 
-        // --- Timing Variables ---
         double setup_time;
         double exec_time;
 
-        // --- FFT Plan variables would go here ---
-        cufftHandle fft_plan;  // pointer to the FFT plan, which will be initialized in the constructor and used in the FFT stage of the PFB algorithm
-        cufftType fft_type;  // variable to hold the type of FFT plan (CUFFT_C2C for single precision, CUFFT_Z2Z for double precision)
+        cufftHandle fft_plan;  
+        cufftType fft_type;  
+
     public:
-        // Constructor and destructor
-        PFB(int M, int N, int W, int n_integrations, bool atomic);  // Constructor to initialize the PFB parameters and allocate memory on the device
-        ~PFB();  // Destructor to free the allocated memory on the device
+        PFB(int M, int N, int W, int n_integrations_in, int n_batches, bool atomic);  
+        ~PFB();  
 
-        // Member functions for the PFB algorithm
-        void FIR(std::complex<T>* h_inputData); // Function to perform the FIR filtering stage of the PFB algorithm
-
-        void FFT(); // Function to perform the FFT stage of the PFB algorithm using the cuFFT library and the fft_plan created in the constructor.
-
-        void PSD(); // Function to perform the PSD stage of the PFB algorithm, which will take the output from the FFT stage to compute the final power spectral density output.
-        void execute_PFB(std::complex<T>* h_inputData); // Function to perform the entire PFB algorithm, which will call the FIR and FFT and PSD functions in sequence.
-
-        // Retrieve the output data from the Device back to the Host
+        void FIR(int i_batch); 
+        void FFT(int i_batch); 
+        void PSD(int i_batch); 
+        
+        void execute_PFB(std::complex<T>* h_inputData); 
         void getOutput(T* h_outputData);
 };
 
 // --- IMPLEMENTATION OF CONSTRUCTOR AND DESTRUCTOR START ---
 template <typename T>
-PFB<T>::PFB(int M, int N, int W, int n_integrations, bool atomic) : n_taps(M), n_chan(N), n_windows(W), n_integrations(n_integrations), atomic(atomic), setup_time(0.0), exec_time(0.0) // Initialize the PFB parameters through the constructor initializer list (the command after the closing parenthesis of the constructor parameters)
+PFB<T>::PFB(int M, int N, int W, int n_integrations_in, int n_batches, bool atomic) : 
+    n_taps(M), n_chan(N), n_windows(W), n_batches(n_batches), atomic(atomic), setup_time(0.0), exec_time(0.0) 
 { 
-    auto s_start = std::chrono::high_resolution_clock::now(); // START SETUP TIMING
-    // The following variables are assignments of the private variables in the body; thus, they are not in the initializer list.
-    filter_length = n_taps * n_chan; // Calculate the total length of the filter coefficients array based on the number of taps and channels
-    input_length =  n_taps * n_windows * n_chan; // Calculate the total length of the input data array based on the number of windows, channels, and taps (units of time)
-    output_length = (n_taps * n_windows - n_taps + 1) * n_chan; // Calculate the total length of the output data array based on the number of taps, windows, and channels (units of time blocks)
-    n_time_blocks = output_length / n_chan; // Calculate the number of time blocks in the output data based on the total output length and the number of channels
-    n_integrated_time_blocks = n_time_blocks / n_integrations; // Calculate the number of time blocks in the integrated output data based on the total integrated output length and the number of channels
-    output_integrated_length = n_integrated_time_blocks * n_chan; // Calculate the total length of the integrated output data array based on the number of integrated time blocks and channels
-    // Allocate memory for filter coefficients and input data on the device
-    CUDA_CHECK(cudaMalloc(&d_coeffs, filter_length * sizeof(T)));  // Initialization for the d_coeffs is done by cudaMalloc itself, so initializer list is not needed here.
-    CUDA_CHECK(cudaMalloc(&d_inputData, input_length * sizeof(cuda::std::complex<T>)));  // Initialization for the d_inputData is done by cudaMalloc itself
-    CUDA_CHECK(cudaMalloc(&d_outputDataComplex, output_length * sizeof(cuda::std::complex<T>)));  // Initialization for the d_outputDataComplex is done by cudaMalloc itself
-    CUDA_CHECK(cudaMalloc(&d_outputDataReal, output_integrated_length * sizeof(T)));  // Initialization for the d_outputDataReal is done by cudaMalloc itself
-    // FFT Plan creation here.
+    auto s_start = std::chrono::high_resolution_clock::now(); 
+    
+    // Per requirements, hardcode n_integrations to 1 for calculation simplicity
+    n_integrations = 1;
+
+    filter_length = n_taps * n_chan; 
+    
+    // --- Whiteboard Algorithm Padding & Batching ---
+    N_input_time_blocks = n_taps * n_windows; 
+    N_out_blocks_total = N_input_time_blocks - n_taps + 1; 
+
+    // ERROR CHECK 1: Ensure n_batches <= N - M + 1
+    if (n_batches > N_out_blocks_total) {
+        std::cerr << "ERROR: n_batches (" << n_batches << ") must be <= N - M + 1 (" << N_out_blocks_total << ")." << std::endl;
+        exit(1);
+    }
+    
+    // N_out,blocks,batch = ceil((N - M + 1) / n_batches) using cuda::ceil_div
+    N_out_blocks_batch = cuda::ceil_div(N_out_blocks_total, n_batches);
+    
+    // N_in,blocks,batch = N_out,blocks,batch + M - 1
+    N_in_blocks_batch = N_out_blocks_batch + n_taps - 1;
+    
+    // Calculate i_batch_max = ceil[ (N - N_in,blocks,batch) / N_out,blocks,batch ]
+    int numerator = N_input_time_blocks - N_in_blocks_batch;
+    i_batch_max = cuda::ceil_div(numerator, N_out_blocks_batch);
+    
+    // ERROR CHECK 2: Ensure i_batch_max <= n_batches - 1
+    if (i_batch_max > n_batches - 1) {
+        std::cerr << "ERROR: Calculated i_batch_max (" << i_batch_max << ") must be <= n_batches - 1 (" << n_batches - 1 << ")." << std::endl;
+        exit(1);
+    }
+    
+    int n_actual_batches = i_batch_max + 1;
+
+    // As proven by the math, (i_max + 2 - M)*P collapses to exactly:
+    int N_padded_out_blocks = n_actual_batches * N_out_blocks_batch;
+    int N_padded_input_blocks = N_padded_out_blocks + n_taps - 1;
+
+    input_length = N_padded_input_blocks * n_chan; 
+    output_length = N_padded_out_blocks * n_chan; 
+    n_time_blocks = N_padded_out_blocks;
+    
+    // Exact unpadded length for getOutput() retrieval (since integrations = 1)
+    valid_output_length = N_out_blocks_total * n_chan;
+
+    // Calculate how many zeros we actually added
+    int padded_input_blocks_added = N_padded_input_blocks - N_input_time_blocks;
+
+    // Allocate memory
+    CUDA_CHECK(cudaMalloc(&d_coeffs, filter_length * sizeof(T)));  
+    CUDA_CHECK(cudaMalloc(&d_inputData, input_length * sizeof(cuda::std::complex<T>)));  
+    CUDA_CHECK(cudaMalloc(&d_outputDataComplex, output_length * sizeof(cuda::std::complex<T>)));  
+    CUDA_CHECK(cudaMalloc(&d_outputDataReal, output_length * sizeof(T)));  
+    
+    // FFT Plan creation
     if (std::is_same<T, float>::value) {
-        fft_type = CUFFT_C2C; // Complex-to-complex FFT for single precision
+        fft_type = CUFFT_C2C; 
     } else if (std::is_same<T, double>::value) {
-        fft_type = CUFFT_Z2Z; // Complex-to-complex FFT for double precision
+        fft_type = CUFFT_Z2Z; 
     } else {
         std::cerr << "Unsupported data type for FFT plan. Only float and double are supported." << std::endl;
         exit(1);
     }
+    
     int n[] = {n_chan};
-    // Syntax: handle, rank, n, inembed, istride, idist, onembed, ostride, odist, type, batch
     cufftPlanMany(&fft_plan, 1, n, 
-                              NULL, 1, n_chan, // Input layout
-                              NULL, 1, n_chan, // Output layout
-                              fft_type, n_time_blocks); // Number of FFTs to perform in a batch is equal to the number of time blocks in the output data
-    // std::cout << "FFT plan created successfully." << std::endl;
+                              NULL, 1, n_chan, 
+                              NULL, 1, n_chan, 
+                              fft_type, N_out_blocks_batch); 
 
-    auto s_end = std::chrono::high_resolution_clock::now(); // END SETUP TIMING
+    auto s_end = std::chrono::high_resolution_clock::now(); 
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
-    std::cout << "GPU PFB initialized with M=" << n_taps << ", N=" << n_chan << ", W=" << n_windows << std::endl;
+    
+    // Requested Print Statements
+    std::cout << "GPU PFB initialized." << std::endl;
+    std::cout << "Zero-padded input blocks added: " << padded_input_blocks_added << std::endl;
+    std::cout << "Actual batches executed: " << n_actual_batches << std::endl;
 }
 
 template <typename T>
 PFB<T>::~PFB() {
-    auto s_start = std::chrono::high_resolution_clock::now(); // START SETUP TIMING
+    auto s_start = std::chrono::high_resolution_clock::now(); 
 
     CUDA_CHECK(cudaFree(d_coeffs));
     CUDA_CHECK(cudaFree(d_inputData));
     CUDA_CHECK(cudaFree(d_outputDataComplex));
     CUDA_CHECK(cudaFree(d_outputDataReal));
     
-    cufftDestroy(fft_plan); // Destroy the FFT plan to free up resources
-    auto s_end = std::chrono::high_resolution_clock::now(); // END SETUP TIMING
+    cufftDestroy(fft_plan); 
+    auto s_end = std::chrono::high_resolution_clock::now(); 
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
-
-    // std::cout << "GPU PFB memory freed." << std::endl;
-
-
 }
 
-// --- IMPLEMENTATION OF CONSTRUCTOR AND DESTRUCTOR END ---
-
 // --- IMPLEMENTATION OF MEMBER FUNCTIONS START ---
+
 template <typename T>
-void PFB<T>::FIR(std::complex<T>* h_inputData) {
-    auto s_start = std::chrono::high_resolution_clock::now(); // START SETUP TIMING
-    // Copy the input data from the host (supplied by main.cu) to the device
-    CUDA_CHECK(cudaMemcpy(d_inputData, h_inputData, input_length * sizeof(std::complex<T>), cudaMemcpyHostToDevice));
-    // std::cout << "Input data copied to device." << std::endl;
-    // Generate the filter coefficients on the host using PFB_CPU and copy them to the device
-    int half_filter_length = (filter_length + 1) / 2; // ceil division handles both even/odd lengths
-    std::vector<T> win_coeffs = windowing::generate_win_coeffs<T>(n_taps, n_chan);  // n_taps and n_chan known here as they were initialized in the constructor and are private members of the class
+void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
+    auto s_start = std::chrono::high_resolution_clock::now(); 
+    
+    // 1) Zero-pad the entire device input buffer first
+    CUDA_CHECK(cudaMemset(d_inputData, 0, input_length * sizeof(cuda::std::complex<T>)));
+    
+    // 2) Copy the valid input blocks into the start of the padded array
+    CUDA_CHECK(cudaMemcpy(d_inputData, h_inputData, N_input_time_blocks * n_chan * sizeof(std::complex<T>), cudaMemcpyHostToDevice));
+
+    // 3) Generate filter coefficients 
+    int half_filter_length = cuda::ceil_div(filter_length, 2); 
+    std::vector<T> win_coeffs = windowing::generate_win_coeffs<T>(n_taps, n_chan);  
     cudaHostRegister(win_coeffs.data(), win_coeffs.size() * sizeof(T), cudaHostRegisterDefault);
     CUDA_CHECK(cudaMemcpy(d_coeffs, win_coeffs.data(), half_filter_length * sizeof(T), cudaMemcpyHostToDevice));
-    // std::cout << "Filter coefficients copied to device." << std::endl;
     cudaHostUnregister(win_coeffs.data());
 
     auto s_end = std::chrono::high_resolution_clock::now();
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
 
-
-    if (atomic) {
-        std::cout << "atomic kernel..." << std::endl;
-        // --- 2.2 EXECUTION PHASE: Moving data and running the kernel: Atomic Kernel (each thread performs 1 operation) ---
-        auto e_start = std::chrono::high_resolution_clock::now();
-        // --- Setting up the kernel launch parameters ---
-        int threadsPerBlock = std::min(n_chan, 1024); // Number of threads per block, do not exceed 1024 threads per block if n_chan is large.
-
-        dim3 blockDim(threadsPerBlock); // 1D thread block dimension based on the number of threads per block
-
-        int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); // Calculate the number of blocks needed in the x-dimension of the grid based on the number of channels and threads per block
-        int numGridBlocks_y = n_time_blocks; // Number of blocks needed in the y-dimension of the grid is equal to the number of time blocks in the output data
-
-        dim3 gridDim(numGridBlocks_y, numGridBlocks_x, n_taps); // 3D grid dimension based on the number of blocks needed in the x and y and z dimensions
-        // NOTE: dimensions inverted here so x-axis dimension of grid corresponds to time, because it can handle more values.
-        
-        // std::cout << "Launching 2D FIR Kernel: Grid(" << gridDim.x << ", " << gridDim.y 
-        //           << "), Block(" << blockDim.x << ", 1)" << std::endl;
-
-        // Set the output array to zero before atomic accumulation
-        CUDA_CHECK(cudaMemset(d_outputDataComplex, 0, output_length * sizeof(cuda::std::complex<T>)));
-
-        // Launch the FIR convolution kernel
-        FIR_atomic_convolution<T><<<gridDim, blockDim>>>(d_inputData, d_coeffs, d_outputDataComplex, n_taps, n_chan, n_time_blocks, filter_length);
-        // ---> ADD THIS TO WAIT FOR FIR TO FINISH <---
-        CUDA_CHECK(cudaDeviceSynchronize());
-        auto e_end = std::chrono::high_resolution_clock::now();
-        std::cout << "GPU_FIR_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
-        exec_time += std::chrono::duration<double>(e_end - e_start).count();
-
-    } else {
-        std::cout << "non-atomic kernel..." << std::endl;
-        // --- 2.1 EXECUTION PHASE: Moving data and running the kernel: Normal Kernel (each thread performs n_tap operations) ---
-        auto e_start = std::chrono::high_resolution_clock::now();
-        // --- Setting up the kernel launch parameters ---
-        int threadsPerBlock = std::min(n_chan, 1024); // Number of threads per block, do not exceed 1024 threads per block if n_chan is large.
-
-        dim3 blockDim(threadsPerBlock); // 1D thread block dimension based on the number of threads per block
-
-        int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); // Calculate the number of blocks needed in the x-dimension of the grid based on the number of channels and threads per block
-        int numGridBlocks_y = n_time_blocks; // Number of blocks needed in the y-dimension of the grid is equal to the number of time blocks in the output data
-
-        dim3 gridDim(numGridBlocks_y, numGridBlocks_x); // 2D grid dimension based on the number of blocks needed in the x and y dimensions
-        // NOTE: dimensions inverted here so x-axis dimension of grid corresponds to time, because it can handle more values.
-        
-        // std::cout << "Launching 2D FIR Kernel: Grid(" << gridDim.x << ", " << gridDim.y 
-        //           << "), Block(" << blockDim.x << ", 1)" << std::endl;
-
-        // Launch the FIR convolution kernel
-        FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData, d_coeffs, d_outputDataComplex, n_taps, n_chan, n_time_blocks, filter_length);
-        // ---> ADD THIS TO WAIT FOR FIR TO FINISH <---
-        CUDA_CHECK(cudaDeviceSynchronize());
-        auto e_end = std::chrono::high_resolution_clock::now();
-        std::cout << "GPU_FIR_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
-        exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    // 4) Execute PFB in batches up to i_batch_max
+    for (int i_batch = 0; i_batch <= i_batch_max; ++i_batch) {
+        FIR(i_batch); 
+        FFT(i_batch); 
+        PSD(i_batch); 
     }
-    
 
-
-}
-
-template <typename T>
-void PFB<T>::FFT() {
-    // This function will perform the FFT stage of the PFB algorithm using the cuFFT library and the fft_plan created in the constructor.
-    // The input data for the FFT will be the output from the FIR stage, which is stored in d_outputDataComplex. The output of the FFT will overwrite this same array to save memory, as it is no longer needed after the FIR stage.
-    auto e_start = std::chrono::high_resolution_clock::now();
-    if (fft_type == CUFFT_C2C) {
-        // std::cout << "Executing single-precision FFT..." << std::endl;
-        cufftExecC2C(fft_plan, (cufftComplex*)d_outputDataComplex, (cufftComplex*)d_outputDataComplex, CUFFT_FORWARD); // Execute the FFT in-place on the device data
-    } else if (fft_type == CUFFT_Z2Z) {
-        // std::cout << "Executing double-precision FFT..." << std::endl;
-        cufftExecZ2Z(fft_plan, (cufftDoubleComplex*)d_outputDataComplex, (cufftDoubleComplex*)d_outputDataComplex, CUFFT_FORWARD); // Execute the FFT in-place on the device data
-    } else {
-        std::cerr << "Unsupported FFT type." << std::endl;
-    }
-    
-    // ---> ADD THIS TO WAIT FOR FFT TO FINISH <---
-    CUDA_CHECK(cudaDeviceSynchronize());
-
-    auto e_end = std::chrono::high_resolution_clock::now();
-    std::cout << "GPU_FFT_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
-    exec_time += std::chrono::duration<double>(e_end - e_start).count();
-}
-
-template <typename T>
-void PFB<T>::PSD() {
-    // This function will perform the PSD stage of the PFB algorithm.
-    auto e_start = std::chrono::high_resolution_clock::now();
-    // --- Setting up the kernel launch parameters ---
-    int threadsPerBlock = std::min(n_chan, 1024); // Number of threads per block, do not exceed 1024 threads per block if n_chan is large.
-
-    dim3 blockDim(threadsPerBlock); // 1D thread block dimension based on the number of threads per block
-
-    int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); // Calculate the number of blocks needed in the x-dimension of the grid based on the number of channels and threads per block
-    int numGridBlocks_y = n_integrated_time_blocks; // Number of blocks needed in the y-dimension of the grid is equal to the number of time blocks in the output data
-
-    dim3 gridDim(numGridBlocks_y, numGridBlocks_x); // 2D grid dimension based on the number of blocks needed in the x and y dimensions
-    // NOTE: dimensions inverted here so x-axis dimension of grid corresponds to time, because it can handle more values.
-    
-    // std::cout << "Launching 2D PSD Kernel: Grid(" << gridDim.x << ", " << gridDim.y 
-    //           << "), Block(" << blockDim.x << ", 1)" << std::endl;
-
-    // Launch the PSD integration kernel
-    PSD_integration<T><<<gridDim, blockDim>>>(d_outputDataComplex, d_outputDataReal, n_integrations, n_chan, n_time_blocks, n_integrated_time_blocks);
-
-    // ---> ADD THIS TO WAIT FOR PSD TO FINISH <---
-    CUDA_CHECK(cudaDeviceSynchronize());
-    auto e_end = std::chrono::high_resolution_clock::now();
-    exec_time += std::chrono::duration<double>(e_end - e_start).count();
-    std::cout << "GPU_PSD_EXEC_TIME: " << std::chrono::duration<double>(e_end - e_start).count() << " seconds\n";
-}
-
-template <typename T>
-void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
-    // This function will perform the entire PFB algorithm by calling the FIR, FFT, and PSD functions in sequence. For now, we have only implemented the FIR and FFT stages, so this function will call those two stages in sequence.
-    FIR(h_inputData); // Call the FIR stage with the input data from the host
-    FFT(); // Call the FFT stage with the output data from the FIR stage, which is stored in d_outputDataComplex on the device
-    PSD(); // Call the PSD stage with the output data from the FFT stage, which is stored in d_outputDataComplex on the device, and the final output will be stored in d_outputDataReal on the device
-    // Output the final accumulated times
     std::cout << "GPU_SETUP_TIME: " << setup_time << "\n";
     std::cout << "GPU_EXEC_TIME: " << exec_time << "\n";
     std::cout << "==================================\n";
 }
 
-// This a function for copying the output file from device to host, to be verified in main.cu
+template <typename T>
+void PFB<T>::FIR(int i_batch) {
+    auto e_start = std::chrono::high_resolution_clock::now(); 
+    
+    // Pointer offset moves forward by the exact output size per batch
+    int in_offset = i_batch * N_out_blocks_batch * n_chan;
+    int out_offset = i_batch * N_out_blocks_batch * n_chan;
+
+    int threadsPerBlock = std::min(n_chan, 1024); 
+    dim3 blockDim(threadsPerBlock); 
+    int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); 
+    int numGridBlocks_y = N_out_blocks_batch; 
+
+    if (atomic) {
+        dim3 gridDim(numGridBlocks_y, numGridBlocks_x, n_taps); 
+        FIR_atomic_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
+    } else {
+        dim3 gridDim(numGridBlocks_y, numGridBlocks_x); 
+        FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
+    }
+    
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto e_end = std::chrono::high_resolution_clock::now();
+    exec_time += std::chrono::duration<double>(e_end - e_start).count();
+}
+
+template <typename T>
+void PFB<T>::FFT(int i_batch) {
+    auto e_start = std::chrono::high_resolution_clock::now();
+    
+    int out_offset = i_batch * N_out_blocks_batch * n_chan;
+
+    if (fft_type == CUFFT_C2C) {
+        cufftExecC2C(fft_plan, (cufftComplex*)(d_outputDataComplex + out_offset), (cufftComplex*)(d_outputDataComplex + out_offset), CUFFT_FORWARD); 
+    } else if (fft_type == CUFFT_Z2Z) {
+        cufftExecZ2Z(fft_plan, (cufftDoubleComplex*)(d_outputDataComplex + out_offset), (cufftDoubleComplex*)(d_outputDataComplex + out_offset), CUFFT_FORWARD); 
+    } 
+    
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto e_end = std::chrono::high_resolution_clock::now();
+    exec_time += std::chrono::duration<double>(e_end - e_start).count();
+}
+
+template <typename T>
+void PFB<T>::PSD(int i_batch) {
+    auto e_start = std::chrono::high_resolution_clock::now();
+    
+    int out_offset = i_batch * N_out_blocks_batch * n_chan;
+
+    int threadsPerBlock = std::min(n_chan, 1024); 
+    dim3 blockDim(threadsPerBlock); 
+    int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); 
+    int numGridBlocks_y = N_out_blocks_batch; 
+    dim3 gridDim(numGridBlocks_y, numGridBlocks_x); 
+
+    PSD_integration<T><<<gridDim, blockDim>>>(d_outputDataComplex + out_offset, d_outputDataReal + out_offset, n_integrations, n_chan, N_out_blocks_batch, N_out_blocks_batch);
+
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto e_end = std::chrono::high_resolution_clock::now();
+    exec_time += std::chrono::duration<double>(e_end - e_start).count();
+}
+
 template <typename T>
 void PFB<T>::getOutput(T* h_outputData) {
-    // Data retrieval is generally considered part of execution/processing time
     auto e_start = std::chrono::high_resolution_clock::now();
 
-    CUDA_CHECK(cudaMemcpy(h_outputData, d_outputDataReal, output_length * sizeof(T), cudaMemcpyDeviceToHost));
+    // Copy ONLY the valid unpadded samples back into the main output and host
+    CUDA_CHECK(cudaMemcpy(h_outputData, d_outputDataReal, valid_output_length * sizeof(T), cudaMemcpyDeviceToHost));
     
     auto e_end = std::chrono::high_resolution_clock::now();
     exec_time += std::chrono::duration<double>(e_end - e_start).count();
-    
-    // std::cout << "GPU PSD output data copied back to host." << std::endl;
 }
