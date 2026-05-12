@@ -32,6 +32,7 @@ int main(int argc, char* argv[]) {
     int out_NBIT = 32;
     int read_from_file = 0;
     bool atomic = false;
+    int n_batches = 1;  // PFB will be executed in batches of input data/n_batches size n_batches times. This is to simulate the streaming scenario where data comes in continuously and we want to process it in batches.
 
     if (argc > 1) W = std::stoi(argv[1]);
     if (argc > 2) in_NBIT = std::stoi(argv[2]);
@@ -39,7 +40,8 @@ int main(int argc, char* argv[]) {
     if (argc > 4) read_from_file = std::stoi(argv[4]);
     if (argc > 5) M = std::stoi(argv[5]);
     if (argc > 6) P = std::stoi(argv[6]);
-    if (argc > 7) atomic = std::stoi(argv[7]);
+    if (argc > 7) n_batches = std::stoi(argv[7]);
+    if (argc > 8) atomic = std::stoi(argv[8]);
 
     double freq = 1.0;
     int ndim_out = 1;
@@ -53,7 +55,7 @@ int main(int argc, char* argv[]) {
     int n_time_blocks = M * W - M + 1;
     int n_integrated_time_blocks = n_time_blocks / n_integrations;
     int output_length = n_integrated_time_blocks * P;
-    bool CPU_verification = true; 
+    bool CPU_verification = false; 
 
     // ========================================================================
     // SCENARIO 1: MEMORY GENERATION (read_from_file == 0)
@@ -67,7 +69,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<double>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(double), cudaHostRegisterDefault);
 
-        PFB<double> testPFB(M, P, W, n_integrations, atomic);
+        PFB<double> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
@@ -90,7 +92,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<float>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(float), cudaHostRegisterDefault);
 
-        PFB<float> testPFB(M, P, W, n_integrations, atomic);
+        PFB<float> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
@@ -112,7 +114,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<float>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(float), cudaHostRegisterDefault);
 
-        PFB<float> testPFB(M, P, W, n_integrations, atomic);
+        PFB<float> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
@@ -138,7 +140,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<double>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(double), cudaHostRegisterDefault);
 
-        PFB<double> testPFB(M, P, W, n_integrations, atomic);
+        PFB<double> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
@@ -167,7 +169,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<float>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(float), cudaHostRegisterDefault);
 
-        PFB<float> testPFB(M, P, W, n_integrations, atomic);
+        PFB<float> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
@@ -195,7 +197,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<float>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(float), cudaHostRegisterDefault);
 
-        PFB<float> testPFB(M, P, W, n_integrations, atomic);
+        PFB<float> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
@@ -226,7 +228,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<double>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(double), cudaHostRegisterDefault);
 
-        PFB<double> testPFB(M, P, W, n_integrations, atomic);
+        PFB<double> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
@@ -253,7 +255,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<float>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(float), cudaHostRegisterDefault);
 
-        PFB<float> testPFB(M, P, W, n_integrations, atomic);
+        PFB<float> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
@@ -279,7 +281,7 @@ int main(int argc, char* argv[]) {
         cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<float>), cudaHostRegisterDefault);
         cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(float), cudaHostRegisterDefault);
 
-        PFB<float> testPFB(M, P, W, n_integrations, atomic);
+        PFB<float> testPFB(M, P, W, n_integrations, n_batches, atomic);
         testPFB.execute_PFB(signal.data());
         testPFB.getOutput(gpu_output.data());
 
