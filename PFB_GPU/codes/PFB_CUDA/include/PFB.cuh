@@ -55,6 +55,8 @@ class PFB {
 
         double setup_time;
         double exec_time;
+        double fir_time;
+        double fft_time;
 
         cufftHandle fft_plan;  
         cufftType fft_type;  
@@ -74,7 +76,7 @@ class PFB {
 // --- IMPLEMENTATION OF CONSTRUCTOR AND DESTRUCTOR START ---
 template <typename T>
 PFB<T>::PFB(int M, int N, int W, int n_integrations_in, int n_batches, bool atomic) : 
-    n_taps(M), n_chan(N), n_windows(W), n_batches(n_batches), atomic(atomic), setup_time(0.0), exec_time(0.0) 
+    n_taps(M), n_chan(N), n_windows(W), n_batches(n_batches), atomic(atomic), setup_time(0.0), exec_time(0.0), fir_time(0.0), fft_time(0.0)
 { 
     auto s_start = std::chrono::high_resolution_clock::now(); 
     
@@ -176,7 +178,8 @@ template <typename T>
 void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
     auto s_start = std::chrono::high_resolution_clock::now(); 
     
-    // 1) Zero-pad the entire device input buffer first
+    // 1) Zero-pad the entire device input buffer first, technically only the last padded_input_blocks_added blocks need to be zero, but this is simpler.
+    // POSSIBLE OPTIMISATION: Zero-pad just the end.
     CUDA_CHECK(cudaMemset(d_inputData, 0, input_length * sizeof(cuda::std::complex<T>)));
     
     // 2) Copy the valid input blocks into the start of the padded array
@@ -201,6 +204,8 @@ void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
 
     std::cout << "GPU_SETUP_TIME: " << setup_time << "\n";
     std::cout << "GPU_EXEC_TIME: " << exec_time << "\n";
+    std::cout << "GPU_FIR_TIME: " << fir_time << "\n";
+    std::cout << "GPU_FFT_TIME: " << fft_time << "\n";
     std::cout << "==================================\n";
 }
 
@@ -228,6 +233,7 @@ void PFB<T>::FIR(int i_batch) {
     CUDA_CHECK(cudaDeviceSynchronize());
     auto e_end = std::chrono::high_resolution_clock::now();
     exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    fir_time += std::chrono::duration<double>(e_end - e_start).count();
 }
 
 template <typename T>
@@ -245,6 +251,7 @@ void PFB<T>::FFT(int i_batch) {
     CUDA_CHECK(cudaDeviceSynchronize());
     auto e_end = std::chrono::high_resolution_clock::now();
     exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    fft_time += std::chrono::duration<double>(e_end - e_start).count();
 }
 
 template <typename T>

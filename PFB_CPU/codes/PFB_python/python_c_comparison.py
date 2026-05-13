@@ -415,6 +415,8 @@ def run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic, n_batches=1, 
 
     gpu_setup = None
     gpu_exec = None
+    gpu_fir = None
+    gpu_fft = None
     max_diff = None
 
     for line in result.stdout.split('\n'):
@@ -423,18 +425,22 @@ def run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic, n_batches=1, 
             gpu_setup = float(line.split(":")[1].strip())
         elif line.startswith("GPU_EXEC_TIME:"):
             gpu_exec = float(line.split(":")[1].strip())
+        elif line.startswith("GPU_FIR_TIME:"):
+            gpu_fir = float(line.split(":")[1].strip())
+        elif line.startswith("GPU_FFT_TIME:"):
+            gpu_fft = float(line.split(":")[1].strip())
         elif verify_diff and line.startswith("Max Diff:"): 
             max_diff = float(line.split(":")[1].strip())
 
     # Only check for max_diff if verify_diff is True
-    if gpu_setup is None or gpu_exec is None or (verify_diff and max_diff is None):
+    if gpu_setup is None or gpu_exec is None or gpu_fir is None or gpu_fft is None or (verify_diff and max_diff is None):
         print(f"Error parsing CUDA output for W={W}, atomic={atomic}.")
         print("--- STDERR ---")
         print(result.stderr)
         print("--- STDOUT ---")
         print(result.stdout)
     
-    return gpu_setup, gpu_exec, max_diff
+    return gpu_setup, gpu_exec, gpu_fir, gpu_fft, max_diff
 
 
 def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=True):
@@ -442,17 +448,14 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
     Runs benchmarks varying chunk_size and n_batches, holding M and P constant.
     Plots a 1x3 (or 1x2) grid of Heatmaps for GPU Setup, GPU Exec, and optionally Max Diff.
     """
-    import matplotlib.pyplot as plt
-    from matplotlib.colors import LogNorm
-    import numpy as np
-    import os
+
     
     # Chunk sizes from 100/2**14 to 100/2**10
-    chunk_sizes_base = [100 / (2**i) for i in range(14, 6, -1)]
+    chunk_sizes_base = [100 / (2**i) for i in range(16, 6, -1)]
     # Plotting x-axis requires 2x chunk size for complex data
-    plot_x = [c * 2 for c in chunk_sizes_base] 
+    plot_x = [c * 2 for c in chunk_sizes_base]
     
-    n_batches_vals = np.arange(1, 101)
+    n_batches_vals = np.arange(1, 100)
     
     freq = 1.0
     signal_type = "complex_phasors"
@@ -466,6 +469,8 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
     # Initialize result arrays
     setup_results = np.zeros((num_batches, num_chunks))
     exec_results = np.zeros((num_batches, num_chunks))
+    fir_results = np.zeros((num_batches, num_chunks))
+    fft_results = np.zeros((num_batches, num_chunks))
     if verify_diff:
         diff_results = np.zeros((num_batches, num_chunks))
 
@@ -481,6 +486,8 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
         if W <= 0:
             setup_results[:, c_idx] = np.nan
             exec_results[:, c_idx] = np.nan
+            fir_results[:, c_idx] = np.nan
+            fft_results[:, c_idx] = np.nan
             if verify_diff:
                 diff_results[:, c_idx] = np.nan
             continue
@@ -498,14 +505,18 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
             if b > N_out_blocks_total:
                 setup_results[b_idx, c_idx] = np.nan
                 exec_results[b_idx, c_idx] = np.nan
+                fir_results[b_idx, c_idx] = np.nan
+                fft_results[b_idx, c_idx] = np.nan
                 if verify_diff:
                     diff_results[b_idx, c_idx] = np.nan
                 continue
 
-            g_setup, g_exec, max_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic, n_batches=b, verify_diff=verify_diff)
+            g_setup, g_exec, g_fir, g_fft, max_diff = run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic, n_batches=b, verify_diff=verify_diff)
             
             setup_results[b_idx, c_idx] = g_setup
             exec_results[b_idx, c_idx] = g_exec
+            fir_results[b_idx, c_idx] = g_fir
+            fft_results[b_idx, c_idx] = g_fft
             if verify_diff:
                 diff_results[b_idx, c_idx] = max_diff
             
@@ -514,13 +525,15 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
                 print(f"  Processed {b}/100 batches...")
 
     # --- Plotting ---
-    num_plots = 3 if verify_diff else 2
+    num_plots = 5 if verify_diff else 4
     fig, axs = plt.subplots(1, num_plots, figsize=(7 * num_plots, 6), constrained_layout=True)
     fig.suptitle(f"PFB Scaling: Number of Batches vs. Complex Chunk Size (M={M}, P={P})", fontsize=16, fontweight='bold')
 
     metrics = [
         (setup_results, "GPU Setup Time (s)", "Setup Time (s)"),
-        (exec_results, "GPU Exec Time (s)", "Execution Time (s)")
+        (exec_results, "GPU Exec Time (s)", "Execution Time (s)"),
+        (fir_results, "GPU FIR Time (s)", "FIR Time (s)"),
+        (fft_results, "GPU FFT Time (s)", "FFT Time (s)")
     ]
     
     if verify_diff:
@@ -553,7 +566,41 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
         fig.colorbar(im, ax=ax, label=cb_label)
 
     plt.savefig(f"images/benchmark_batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png", dpi=300)
+    np.savez(f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.npz", n_batches=n_batches_vals, chunk_sizes=plot_x, setup=setup_results, exec=exec_results, fir=fir_results, fft=fft_results, diff=diff_results if verify_diff else None)
     print("\nPlot saved to images/benchmark_batch_chunk_{}_{}.png".format(in_NBIT_cpp, out_NBIT_cpp))
+    plt.show()
+
+def plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=True):
+    filepath = f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.npz"
+    if not os.path.exists(filepath):
+        print(f"Error: Benchmark data file not found at {filepath}. Please run benchmarking_batch_chunk() first.")
+        return
+    data = np.load(filepath)
+    n_batches = data['n_batches']
+    chunk_sizes = data['chunk_sizes']
+    setup_results = data['setup']
+    exec_results = data['exec']
+    fir_results = data['fir']
+    fft_results = data['fft']
+    diff_results = data['diff'] if verify_diff else None
+    # Find minimum execution time across all batches for each chunk size
+    min_exec_times = np.nanmin(exec_results, axis=0)
+    min_exec_indices = np.nanargmin(exec_results, axis=0)
+    best_batches = n_batches[min_exec_indices]
+    fig = plt.figure(figsize=(6, 6))
+    plt.plot(chunk_sizes, exec_results[0, :], marker='o', label='Unbatched Execution Time')
+    plt.plot(chunk_sizes, min_exec_times, marker='s', label='Best Batched Execution Time')
+    for i, c in enumerate(chunk_sizes):
+        plt.annotate(f"{best_batches[i]} batches", (chunk_sizes[i], min_exec_times[i]), textcoords="offset points", xytext=(0,10), ha='center', fontsize=8)
+    plt.xscale('log')
+    plt.yscale('log')
+    plt.xlabel("Complex Data Chunk Size (GB)", fontsize=12)
+    plt.ylabel("Execution Time (s)", fontsize=12)
+    plt.title(f"Best Batched Execution Time vs Unbatched\n(M={M}, P={P}, {in_NBIT_cpp}-bit In / {out_NBIT_cpp}-bit Out)", fontsize=14, fontweight='bold')
+    plt.legend()
+    plt.grid(True, which="both", ls="--", linewidth=0.5)
+    plt.savefig(f"images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png", dpi=300)
+    print(f"\nPlot saved to images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png")
     plt.show()
 
 if __name__ == "__main__":
@@ -574,3 +621,4 @@ if __name__ == "__main__":
     # benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
     # benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)
     benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=False)
+    plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=False)
