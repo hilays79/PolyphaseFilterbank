@@ -565,13 +565,13 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
         
         fig.colorbar(im, ax=ax, label=cb_label)
 
-    plt.savefig(f"images/benchmark_batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png", dpi=300)
-    np.savez(f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.npz", n_batches=n_batches_vals, chunk_sizes=plot_x, setup=setup_results, exec=exec_results, fir=fir_results, fft=fft_results, diff=diff_results if verify_diff else None)
+    plt.savefig(f"images/benchmark_batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.png", dpi=300)
+    np.savez(f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.npz", n_batches=n_batches_vals, chunk_sizes=plot_x, setup=setup_results, exec=exec_results, fir=fir_results, fft=fft_results, diff=diff_results if verify_diff else None)
     print("\nPlot saved to images/benchmark_batch_chunk_{}_{}.png".format(in_NBIT_cpp, out_NBIT_cpp))
     plt.show()
 
 def plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=True):
-    filepath = f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.npz"
+    filepath = f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.npz"
     if not os.path.exists(filepath):
         print(f"Error: Benchmark data file not found at {filepath}. Please run benchmarking_batch_chunk() first.")
         return
@@ -599,7 +599,7 @@ def plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=True):
     plt.title(f"Best Batched Execution Time vs Unbatched\n(M={M}, P={P}, {in_NBIT_cpp}-bit In / {out_NBIT_cpp}-bit Out)", fontsize=14, fontweight='bold')
     plt.legend()
     plt.grid(True, which="both", ls="--", linewidth=0.5)
-    plt.savefig(f"images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png", dpi=300)
+    plt.savefig(f"images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.png", dpi=300)
     print(f"\nPlot saved to images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png")
     plt.show()
 

@@ -22,6 +22,15 @@
     } \
 } while (0)
 
+#define CUFFT_CHECK(expr_to_check) do { \
+    cufftResult result = (expr_to_check); \
+    if (result != CUFFT_SUCCESS) { \
+        std::cerr << "cuFFT error in " << __FILE__ << ":" << __LINE__ << ": " \
+                  << result << std::endl; \
+        exit(1); \
+    } \
+} while (0)
+
 template <typename T>
 class PFB {
     private:
@@ -48,10 +57,11 @@ class PFB {
         
         int n_time_blocks; 
 
-        T* d_coeffs; 
+        T* d_coeffs;
         cuda::std::complex<T>* d_inputData; 
         cuda::std::complex<T>* d_outputDataComplex; 
-        T* d_outputDataReal; 
+        T* d_outputDataReal;
+        void* d_work_area;
 
         double setup_time;
         double exec_time;
@@ -144,10 +154,40 @@ PFB<T>::PFB(int M, int N, int W, int n_integrations_in, int n_batches, bool atom
     }
     
     int n[] = {n_chan};
-    cufftPlanMany(&fft_plan, 1, n, 
-                              NULL, 1, n_chan, 
-                              NULL, 1, n_chan, 
-                              fft_type, N_out_blocks_batch); 
+
+    // ---------- MANUAL PLANNING ------------
+    // For cufftMakePlanMany(), plan creation and memory allocation are separate steps, so we create the plan first and then allocate memory.
+    // Disabling auto-allocation
+    CUFFT_CHECK(cufftCreate(&fft_plan));
+    CUFFT_CHECK(cufftSetAutoAllocation(fft_plan, 0));
+    size_t work_area_size = 0;  // Variable to hold the required work area size for the FFT plan
+    // Create an emply plan first
+    
+
+    // Make the plan with the specified parameters, but with zero work area size to query the required size
+    CUFFT_CHECK(cufftMakePlanMany(fft_plan, 1, n, 
+                                    NULL, 1, n_chan, 
+                                    NULL, 1, n_chan, 
+                                    fft_type, N_out_blocks_batch, &work_area_size));
+
+
+    CUFFT_CHECK(cufftGetSize(fft_plan, &work_area_size));
+
+    // Allocate the required work area on the device
+    std::cout << "Required work area size for FFT plan: " << work_area_size << " bytes" << std::endl;
+    d_work_area = NULL;
+    if (work_area_size > 0) {
+        CUDA_CHECK(cudaMalloc(&d_work_area, work_area_size));
+        // Assign custom memory buffer to the plan
+        CUFFT_CHECK(cufftSetWorkArea(fft_plan, d_work_area));
+    }
+
+    // ------------ AUTOMATIC PLANNING ----------
+    // // cufftPlanMany() does everything in one step, including creating the plan, assigning that plan to the passed pointer, allocating memory, and all.
+    // cufft_result = CUFFT_CHECK(cufftPlanMany(&fft_plan, 1, n, 
+    //                         NULL, 1, n_chan, 
+    //                         NULL, 1, n_chan, 
+    //                         fft_type, N_out_blocks_batch)); 
 
     auto s_end = std::chrono::high_resolution_clock::now(); 
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
@@ -167,7 +207,11 @@ PFB<T>::~PFB() {
     CUDA_CHECK(cudaFree(d_outputDataComplex));
     CUDA_CHECK(cudaFree(d_outputDataReal));
     
-    cufftDestroy(fft_plan); 
+    cufftDestroy(fft_plan);
+    // Free the manually allocated work area
+    if (d_work_area) {
+        CUDA_CHECK(cudaFree(d_work_area));
+    }
     auto s_end = std::chrono::high_resolution_clock::now(); 
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
 }
