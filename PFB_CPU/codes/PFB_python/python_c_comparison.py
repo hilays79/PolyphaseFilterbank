@@ -423,13 +423,17 @@ def run_cuda_benchmark(in_NBIT_cpp, out_NBIT_cpp, M, P, W, atomic, n_batches=1, 
         line = line.strip()
         if line.startswith("GPU_SETUP_TIME:"):
             gpu_setup = float(line.split(":")[1].strip())
-        elif line.startswith("GPU_EXEC_TIME:"):
+        if line.startswith("GPU_EXEC_TIME:"):
             gpu_exec = float(line.split(":")[1].strip())
-        elif line.startswith("GPU_FIR_TIME:"):
+        if line.startswith("GPU_FIR_TIME:"):
             gpu_fir = float(line.split(":")[1].strip())
-        elif line.startswith("GPU_FFT_TIME:"):
+        else:
+            gpu_fir = np.nan  # If FIR time is not printed, set to NaN to avoid confusion in plots
+        if line.startswith("GPU_FFT_TIME:"):
             gpu_fft = float(line.split(":")[1].strip())
-        elif verify_diff and line.startswith("Max Diff:"): 
+        else:
+            gpu_fft = np.nan  # If FFT time is not printed, set to NaN to avoid confusion in plots
+        if verify_diff and line.startswith("Max Diff:"): 
             max_diff = float(line.split(":")[1].strip())
 
     # Only check for max_diff if verify_diff is True
@@ -565,13 +569,13 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
         
         fig.colorbar(im, ax=ax, label=cb_label)
 
-    plt.savefig(f"images/benchmark_batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.png", dpi=300)
-    np.savez(f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.npz", n_batches=n_batches_vals, chunk_sizes=plot_x, setup=setup_results, exec=exec_results, fir=fir_results, fft=fft_results, diff=diff_results if verify_diff else None)
+    plt.savefig(f"images/benchmark_batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT_nosync.png", dpi=300)
+    np.savez(f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT_nosync.npz", n_batches=n_batches_vals, chunk_sizes=plot_x, setup=setup_results, exec=exec_results, fir=fir_results, fft=fft_results, diff=diff_results if verify_diff else None)
     print("\nPlot saved to images/benchmark_batch_chunk_{}_{}.png".format(in_NBIT_cpp, out_NBIT_cpp))
     plt.show()
 
 def plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=True):
-    filepath = f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.npz"
+    filepath = f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT_nosync.npz"
     if not os.path.exists(filepath):
         print(f"Error: Benchmark data file not found at {filepath}. Please run benchmarking_batch_chunk() first.")
         return
@@ -599,10 +603,38 @@ def plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=True):
     plt.title(f"Best Batched Execution Time vs Unbatched\n(M={M}, P={P}, {in_NBIT_cpp}-bit In / {out_NBIT_cpp}-bit Out)", fontsize=14, fontweight='bold')
     plt.legend()
     plt.grid(True, which="both", ls="--", linewidth=0.5)
-    plt.savefig(f"images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.png", dpi=300)
-    print(f"\nPlot saved to images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png")
+    plt.savefig(f"images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT_nosync.png", dpi=300)
+    print(f"\nPlot saved to images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT_nosync.png")
     plt.show()
 
+def plot_one_chunk(in_NBIT_cpp, out_NBIT_cpp, verify_diff=True):
+    filepath = f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT_nosync.npz"
+    if not os.path.exists(filepath):
+        print(f"Error: Benchmark data file not found at {filepath}. Please run benchmarking_batch_chunk() first.")
+        return
+    data = np.load(filepath)
+    n_batches = data['n_batches']
+    chunk_sizes = data['chunk_sizes']
+    setup_results = data['setup']
+    exec_results = data['exec']
+    fir_results = data['fir']
+    fft_results = data['fft']
+    diff_results = data['diff'] if verify_diff else None
+    fig = plt.figure(figsize=(6, 6))
+    chunk_idx = 8
+    plt.plot(n_batches, exec_results[:, chunk_idx], marker='o', label=f'Execution Time for Chunk Size {chunk_sizes[chunk_idx]:.4f} GB')
+    plt.plot(n_batches, fir_results[:, chunk_idx], marker='s', label='FIR Time')
+    plt.plot(n_batches, fft_results[:, chunk_idx], marker='^', label='FFT Time')
+    plt.yscale('log')
+    plt.xlabel("Number of Batches", fontsize=12)
+    plt.ylabel("Execution Time (s)", fontsize=12)
+    plt.title(f"Execution Time vs Number of Batches\n(M={M}, P={P}, {in_NBIT_cpp}-bit In / {out_NBIT_cpp}-bit Out))", fontsize=14, fontweight='bold')
+    plt.legend()
+    plt.grid(True, which="both", ls="--", linewidth=0.5)
+    plt.savefig(f"images/execution_time_vs_batches_chunk{chunk_sizes[chunk_idx]:.4f}GB_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT_nosync.png", dpi=300)
+    print(f"\nPlot saved to images/execution_time_vs_batches_chunk{chunk_sizes[chunk_idx]:.4f}GB_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT_nosync.png")
+    plt.show()
+    stop()
 if __name__ == "__main__":
     M, P, W, freq = 4, 256, 100, 1
     delta_period, delta_start = 257, 0
@@ -620,5 +652,6 @@ if __name__ == "__main__":
     # Now call the plotting function instead of run_benchmark directly
     # benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
     # benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)
-    benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=False)
+    # benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=False)
+    # plot_one_chunk(in_NBIT_cpp, out_NBIT_cpp, verify_diff=False)
     plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=False)

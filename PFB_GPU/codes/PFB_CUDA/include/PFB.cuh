@@ -240,22 +240,26 @@ void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
 
     // 4) Execute PFB in batches up to i_batch_max
+    auto e_start = std::chrono::high_resolution_clock::now(); 
     for (int i_batch = 0; i_batch <= i_batch_max; ++i_batch) {
         FIR(i_batch); 
         FFT(i_batch); 
         PSD(i_batch); 
     }
+    CUDA_CHECK(cudaDeviceSynchronize());
+    auto e_end = std::chrono::high_resolution_clock::now();
+    exec_time += std::chrono::duration<double>(e_end - e_start).count();
 
     std::cout << "GPU_SETUP_TIME: " << setup_time << "\n";
     std::cout << "GPU_EXEC_TIME: " << exec_time << "\n";
-    std::cout << "GPU_FIR_TIME: " << fir_time << "\n";
-    std::cout << "GPU_FFT_TIME: " << fft_time << "\n";
+    // std::cout << "GPU_FIR_TIME: " << fir_time << "\n";
+    // std::cout << "GPU_FFT_TIME: " << fft_time << "\n";
     std::cout << "==================================\n";
 }
 
 template <typename T>
 void PFB<T>::FIR(int i_batch) {
-    auto e_start = std::chrono::high_resolution_clock::now(); 
+    
     
     // Pointer offset moves forward by the exact output size per batch
     int in_offset = i_batch * N_out_blocks_batch * n_chan;
@@ -274,15 +278,15 @@ void PFB<T>::FIR(int i_batch) {
         FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
     }
     
-    CUDA_CHECK(cudaDeviceSynchronize());
-    auto e_end = std::chrono::high_resolution_clock::now();
-    exec_time += std::chrono::duration<double>(e_end - e_start).count();
-    fir_time += std::chrono::duration<double>(e_end - e_start).count();
+    // CUDA_CHECK(cudaDeviceSynchronize());
+    // auto e_end = std::chrono::high_resolution_clock::now();
+    // exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    // fir_time += std::chrono::duration<double>(e_end - e_start).count();
 }
 
 template <typename T>
 void PFB<T>::FFT(int i_batch) {
-    auto e_start = std::chrono::high_resolution_clock::now();
+    // auto e_start = std::chrono::high_resolution_clock::now();
     
     int out_offset = i_batch * N_out_blocks_batch * n_chan;
 
@@ -292,15 +296,15 @@ void PFB<T>::FFT(int i_batch) {
         cufftExecZ2Z(fft_plan, (cufftDoubleComplex*)(d_outputDataComplex + out_offset), (cufftDoubleComplex*)(d_outputDataComplex + out_offset), CUFFT_FORWARD); 
     } 
     
-    CUDA_CHECK(cudaDeviceSynchronize());
-    auto e_end = std::chrono::high_resolution_clock::now();
-    exec_time += std::chrono::duration<double>(e_end - e_start).count();
-    fft_time += std::chrono::duration<double>(e_end - e_start).count();
+    // CUDA_CHECK(cudaDeviceSynchronize());
+    // auto e_end = std::chrono::high_resolution_clock::now();
+    // exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    // fft_time += std::chrono::duration<double>(e_end - e_start).count();
 }
 
 template <typename T>
 void PFB<T>::PSD(int i_batch) {
-    auto e_start = std::chrono::high_resolution_clock::now();
+    // auto e_start = std::chrono::high_resolution_clock::now();
     
     int out_offset = i_batch * N_out_blocks_batch * n_chan;
 
@@ -312,9 +316,9 @@ void PFB<T>::PSD(int i_batch) {
 
     PSD_integration<T><<<gridDim, blockDim>>>(d_outputDataComplex + out_offset, d_outputDataReal + out_offset, n_integrations, n_chan, N_out_blocks_batch, N_out_blocks_batch);
 
-    CUDA_CHECK(cudaDeviceSynchronize());
-    auto e_end = std::chrono::high_resolution_clock::now();
-    exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    // CUDA_CHECK(cudaDeviceSynchronize());
+    // auto e_end = std::chrono::high_resolution_clock::now();
+    // exec_time += std::chrono::duration<double>(e_end - e_start).count();
 }
 
 template <typename T>

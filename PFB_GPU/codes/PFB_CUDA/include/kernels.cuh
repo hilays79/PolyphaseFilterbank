@@ -63,10 +63,19 @@ __global__ void FIR_convolution(const cuda::std::complex<T>* __restrict__ d_inpu
         }
         d_outputData[output_idx] = local_sum; 
     }
+    else {
+        // throw an error.
+        printf("Error: Channel index %d or time block index %d is out of bounds. Max channel index: %d, Max time block index: %d\n", i_chan, i_t, n_chan - 1, num_time_blocks - 1);
+    }
+}
+
+// In the triple chevron notation, use the third argument to specify the size of the shared memory. For example, <<<gridDim, blockDim, sharedMemSize>>>.
+// --- FIR convolution kernel with shared memory for input data and filter coefficients ---
+template <typename T>
+__global__ void FIR_transposed_convolution(const cuda::std::complex<T>* __restrict__ d_inputData, const T* __restrict__ d_coeffs, cuda::std::complex<T>* d_outputData, int n_taps, int n_chan, int num_time_blocks, int filter_length) {
 }
 
 // --- FIR atomic convolution kernel: This implementation is inspired by the Curtin group's PFB implementation ---
-
 template <typename T>
 __global__ void FIR_atomic_convolution(const cuda::std::complex<T>* __restrict__ d_inputData, const T* __restrict__ d_coeffs, cuda::std::complex<T>* d_outputData, int n_taps, int n_chan, int num_time_blocks, int filter_length) {
     // Channel index
