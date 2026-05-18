@@ -55,7 +55,7 @@ int main(int argc, char* argv[]) {
     int n_time_blocks = M * W - M + 1;
     int n_integrated_time_blocks = n_time_blocks / n_integrations;
     int output_length = n_integrated_time_blocks * P;
-    bool CPU_verification = false; 
+    bool CPU_verification = true; 
 
     // ========================================================================
     // SCENARIO 1: MEMORY GENERATION (read_from_file == 0)
