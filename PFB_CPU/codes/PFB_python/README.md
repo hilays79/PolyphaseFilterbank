@@ -1,6 +1,6 @@
 # Polyphase Filter Bank (PFB) Python Implementation
 
-!!!IMPORTANT: This repository has undergone MAJOR changes and is now a submodule of the parent repository https://github.com/hilays79/PFB_CPU. Please follow the instructions there for proper usage.
+!!!IMPORTANT: This repository has undergone MAJOR changes and is now a part of the parent repository https://github.com/hilays79/PolyphaseFilterbank. Please follow the instructions there for proper usage.
 This repository provides a Python implementation of a Polyphase Filter Bank (PFB) for digital signal processing, optimized for high-performance channelization.
 
 ## Directory Structure

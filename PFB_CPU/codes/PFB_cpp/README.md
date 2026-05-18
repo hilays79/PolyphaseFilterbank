@@ -6,4 +6,4 @@ The code in this repository is not meant to be run in isolation. It relies on a 
 
 Please visit the main repository for complete instructions on how to clone the full project, compile the code, and run the benchmarks:
 
-**[Go to the Main Repository](https://github.com/hilays79/PFB_CPU)**
+**[Go to the Main Repository](https://github.com/hilays79/PolyphaseFilterbank)**
