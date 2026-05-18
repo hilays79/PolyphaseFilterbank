@@ -196,6 +196,7 @@ PFB<T>::PFB(int M, int N, int W, int n_integrations_in, int n_batches, bool atom
     std::cout << "GPU PFB initialized." << std::endl;
     std::cout << "Zero-padded input blocks added: " << padded_input_blocks_added << std::endl;
     std::cout << "Actual batches executed: " << n_actual_batches << std::endl;
+    std::cout << "Setup allocation and FFT planning time: " << setup_time << " seconds" << std::endl;
 }
 
 template <typename T>
@@ -214,6 +215,12 @@ PFB<T>::~PFB() {
     }
     auto s_end = std::chrono::high_resolution_clock::now(); 
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
+    std::cout << "Setup cleanup time: " << std::chrono::duration<double>(s_end - s_start).count() << " seconds" << std::endl;
+    std::cout << "GPU_SETUP_TIME: " << setup_time << "\n";
+    std::cout << "GPU_EXEC_TIME: " << exec_time << "\n";
+    std::cout << "GPU_FIR_TIME: " << fir_time << "\n";
+    std::cout << "GPU_FFT_TIME: " << fft_time << "\n";
+    std::cout << "==================================\n";
 }
 
 // --- IMPLEMENTATION OF MEMBER FUNCTIONS START ---
@@ -238,6 +245,7 @@ void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
 
     auto s_end = std::chrono::high_resolution_clock::now();
     setup_time += std::chrono::duration<double>(s_end - s_start).count();
+    std::cout << "Setup time (data transfer + coeff generation): " << setup_time << " seconds" << std::endl;
 
     // 4) Execute PFB in batches up to i_batch_max
     for (int i_batch = 0; i_batch <= i_batch_max; ++i_batch) {
@@ -246,34 +254,50 @@ void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
         PSD(i_batch); 
     }
 
-    std::cout << "GPU_SETUP_TIME: " << setup_time << "\n";
-    std::cout << "GPU_EXEC_TIME: " << exec_time << "\n";
-    std::cout << "GPU_FIR_TIME: " << fir_time << "\n";
-    std::cout << "GPU_FFT_TIME: " << fft_time << "\n";
-    std::cout << "==================================\n";
+
 }
 
 template <typename T>
 void PFB<T>::FIR(int i_batch) {
-    auto e_start = std::chrono::high_resolution_clock::now(); 
+    // Non-transposed kernel implementation for FIR convolution. BlockX time blocks, ThreadX channels
+    // auto e_start = std::chrono::high_resolution_clock::now(); 
     
+    // // Pointer offset moves forward by the exact output size per batch
+    // int in_offset = i_batch * N_out_blocks_batch * n_chan;
+    // int out_offset = i_batch * N_out_blocks_batch * n_chan;
+
+    // int threadsPerBlock = std::min(n_chan, 1024); 
+    // dim3 blockDim(threadsPerBlock); 
+    // int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); 
+    // int numGridBlocks_y = N_out_blocks_batch; 
+
+    // if (atomic) {
+    //     dim3 gridDim(numGridBlocks_y, numGridBlocks_x, n_taps); 
+    //     FIR_atomic_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
+    // } else {
+    //     dim3 gridDim(numGridBlocks_y, numGridBlocks_x); 
+    //     FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
+    // }
+    
+    // CUDA_CHECK(cudaDeviceSynchronize());
+    // auto e_end = std::chrono::high_resolution_clock::now();
+    // exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    // fir_time += std::chrono::duration<double>(e_end - e_start).count();
+
+    // Transposed kernel implementation for FIR convolution. BlockX Time Blocks in multiples of 1024, BlockY channels, ThreadX time blocks
+    auto e_start = std::chrono::high_resolution_clock::now();
+
     // Pointer offset moves forward by the exact output size per batch
     int in_offset = i_batch * N_out_blocks_batch * n_chan;
     int out_offset = i_batch * N_out_blocks_batch * n_chan;
 
-    int threadsPerBlock = std::min(n_chan, 1024); 
-    dim3 blockDim(threadsPerBlock); 
-    int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); 
-    int numGridBlocks_y = N_out_blocks_batch; 
+    int threadsPerBlock = 256;
+    int numGridBlocks_x = cuda::ceil_div(N_out_blocks_batch, threadsPerBlock);
+    int numGridBlocks_y = n_chan;
+    dim3 blockDim(threadsPerBlock);
+    dim3 gridDim(numGridBlocks_x, numGridBlocks_y);
+    FIR_convolution_transposed<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_in_blocks_batch, N_out_blocks_batch, filter_length);
 
-    if (atomic) {
-        dim3 gridDim(numGridBlocks_y, numGridBlocks_x, n_taps); 
-        FIR_atomic_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
-    } else {
-        dim3 gridDim(numGridBlocks_y, numGridBlocks_x); 
-        FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
-    }
-    
     CUDA_CHECK(cudaDeviceSynchronize());
     auto e_end = std::chrono::high_resolution_clock::now();
     exec_time += std::chrono::duration<double>(e_end - e_start).count();
@@ -319,11 +343,12 @@ void PFB<T>::PSD(int i_batch) {
 
 template <typename T>
 void PFB<T>::getOutput(T* h_outputData) {
-    auto e_start = std::chrono::high_resolution_clock::now();
+    auto s_start = std::chrono::high_resolution_clock::now();
 
     // Copy ONLY the valid unpadded samples back into the main output and host
     CUDA_CHECK(cudaMemcpy(h_outputData, d_outputDataReal, valid_output_length * sizeof(T), cudaMemcpyDeviceToHost));
     
-    auto e_end = std::chrono::high_resolution_clock::now();
-    exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    auto s_end = std::chrono::high_resolution_clock::now();
+    setup_time += std::chrono::duration<double>(s_end - s_start).count();
+    std::cout << "Output retrieval time: " << std::chrono::duration<double>(s_end - s_start).count() << " seconds" << std::endl;
 }

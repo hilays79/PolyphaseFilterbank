@@ -12,6 +12,7 @@ import io
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 
+master_data_key = 'manualFFT_transpose_tap8_P512'
 # Dynamically find the repo root
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..'))
@@ -451,7 +452,7 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
 
     
     # Chunk sizes from 100/2**14 to 100/2**10
-    chunk_sizes_base = [100 / (2**i) for i in range(16, 6, -1)]
+    chunk_sizes_base = [100 / (2**i) for i in range(10, 7, -1)]
     # Plotting x-axis requires 2x chunk size for complex data
     plot_x = [c * 2 for c in chunk_sizes_base]
     
@@ -565,13 +566,13 @@ def benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=
         
         fig.colorbar(im, ax=ax, label=cb_label)
 
-    plt.savefig(f"images/benchmark_batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.png", dpi=300)
-    np.savez(f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.npz", n_batches=n_batches_vals, chunk_sizes=plot_x, setup=setup_results, exec=exec_results, fir=fir_results, fft=fft_results, diff=diff_results if verify_diff else None)
+    plt.savefig(f"images/benchmark_batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_{master_data_key}.png", dpi=300)
+    np.savez(f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_{master_data_key}.npz", n_batches=n_batches_vals, chunk_sizes=plot_x, setup=setup_results, exec=exec_results, fir=fir_results, fft=fft_results, diff=diff_results if verify_diff else None)
     print("\nPlot saved to images/benchmark_batch_chunk_{}_{}.png".format(in_NBIT_cpp, out_NBIT_cpp))
     plt.show()
 
 def plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=True):
-    filepath = f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.npz"
+    filepath = f"benchmark_data/batch_chunk_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_{master_data_key}.npz"
     if not os.path.exists(filepath):
         print(f"Error: Benchmark data file not found at {filepath}. Please run benchmarking_batch_chunk() first.")
         return
@@ -599,8 +600,8 @@ def plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=True):
     plt.title(f"Best Batched Execution Time vs Unbatched\n(M={M}, P={P}, {in_NBIT_cpp}-bit In / {out_NBIT_cpp}-bit Out)", fontsize=14, fontweight='bold')
     plt.legend()
     plt.grid(True, which="both", ls="--", linewidth=0.5)
-    plt.savefig(f"images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_manualFFT.png", dpi=300)
-    print(f"\nPlot saved to images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}.png")
+    plt.savefig(f"images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_{master_data_key}.png", dpi=300)
+    print(f"\nPlot saved to images/best_batched_vs_unbatched_{in_NBIT_cpp}_{out_NBIT_cpp}_verify{verify_diff}_{master_data_key}.png")
     plt.show()
 
 if __name__ == "__main__":
@@ -620,5 +621,5 @@ if __name__ == "__main__":
     # Now call the plotting function instead of run_benchmark directly
     # benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
     # benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)
-    benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=4, P=256, verify_diff=False)
+    benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=8, P=512, verify_diff=False)
     plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=False)

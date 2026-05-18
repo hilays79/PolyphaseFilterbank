@@ -65,6 +65,28 @@ __global__ void FIR_convolution(const cuda::std::complex<T>* __restrict__ d_inpu
     }
 }
 
+// --- FIR convolution with transposed input and window coefficients. This potentially maximises L1 Cache Utilization ---
+template <typename T>
+__global__ void FIR_convolution_transposed(const cuda::std::complex<T>* __restrict__ d_inputData, const T* __restrict__ d_coeffs, cuda::std::complex<T>* d_outputData, int n_taps, int n_chan, int num_in_time_blocks, int num_out_time_blocks, int filter_length) {
+    // Channel index
+    int i_chan = blockIdx.y;
+    int i_t = threadIdx.x + blockIdx.x * blockDim.x; // Calculate the time block index based on the thread and block indices
+
+    int output_idx = i_t + i_chan * num_out_time_blocks; // Calculate the index for the output data based on the time block and channel indices
+    // Check if the channel index is within bounds
+    if (i_chan < n_chan && i_t < num_out_time_blocks) {
+        cuda::std::complex<T> local_sum(0.0, 0.0); // Initialize a local variable to accumulate the convolution sum for the current output element
+        for (int i_tap = 0; i_tap < n_taps; i_tap++){
+            int input_idx = i_t + i_tap + num_in_time_blocks * i_chan; // Calculate the index for the input data based on the time block, tap index, and channel index
+            int window_idx = i_chan + n_chan * i_tap;
+            int sym_window_idx = min(window_idx, filter_length - 1 - window_idx);
+            local_sum = my_complex_fma(d_inputData[input_idx], d_coeffs[sym_window_idx], local_sum);
+        }
+        d_outputData[output_idx] = local_sum; // Store the final convolution result in the output data array at the calculated output index
+    }
+}
+
+
 // --- FIR atomic convolution kernel: This implementation is inspired by the Curtin group's PFB implementation ---
 
 template <typename T>
