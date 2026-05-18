@@ -2,12 +2,26 @@
 
 ## Overview
 
-This repository provides a high-performance computing (HPC) implementation of a Polyphase Filter Bank (PFB) tailored for advanced digital signal processing (DSP). The project focuses on complex data processing by channelising a high-speed time-domain signal into multiple narrower-band frequency channels. It achieves this using a computationally efficient combination of a polyphase FIR filter and a Fast Fourier Transform (FFT).
+* This repository provides a high-performance computing (HPC) implementation of a Polyphase Filter Bank (PFB) tailored for advanced digital signal processing (DSP). 
+* The project focuses on complex data processing by channelising a high-speed time-domain signal into multiple narrower-band frequency channels. 
+* It achieves this using a computationally efficient combination of a polyphase FIR filter and a Fast Fourier Transform (FFT).
+* Explored optimisations on GPU: L2 cache memory management using batching, L1 cache throughput using tranposed kernels, and redistribution of thread compute using different kernel grid sizes and convolution operations.
+* Development of a more advanced and optimised algorithm has been moved to a private repository. Contact author at Hilay.Shah@anu.edu.au for more information.
 
 ### The PFB Algorithm
 
-* **C++ (CPU) Implementation:** Employs standard vectorization to perform overlapping, windowing, and FFT operations. The input time-series data is multiplied by a windowing function (such as a Hamming or Hann window) across multiple taps, and then fed into an FFT (typically leveraging FFTW) to extract the frequency channels. Both 32-bit and 64-bit data types are supported.
-* **CUDA (GPU) Implementation:** Built for speed using massive parallelization. It leverages custom CUDA kernels for the polyphase filter and windowing stages. Tranposed FIR filter kernels are tested to maximise L1 cache throughput. Batching is implemented to minimise flushing of data from L2 cache to DRAM during the execution of the kernel. Batchsize of ~40% the L2 cache size provides maximum performance due to minimal flushing. The heavily optimized cuFFT library is then used to execute batched FFTs directly on the device, maximizing throughput for large-scale data processing or real-time physical simulations. Both 32-bit and 64-bit data types are supported. 32-bit preferred due to high FP32 FLOPS performance on GPUs (~30X speedup over the CPU implementation).
+* **C++ (CPU) Implementation:** 
+  * Employs standard vectorisation to perform overlapping, windowing, and FFT operations. 
+  * The input time-series data is multiplied by a windowing function (such as a Hamming or Hann window) across multiple taps, and then fed into an FFT (typically leveraging FFTW) to extract the frequency channels. 
+  * Both 32-bit and 64-bit data types are supported.
+* **CUDA (GPU) Implementation:** 
+  * Built for speed using massive parallelisation. 
+  * It leverages custom CUDA kernels for the polyphase filter and windowing stages. 
+  * Tranposed FIR filter kernels are tested to maximise L1 cache throughput. 
+  * Batching is implemented to minimise flushing of data from L2 cache to DRAM during the execution of the kernel. 
+  * Batchsize of ~40% the L2 cache size provides maximum performance due to minimal flushing. 
+  * The heavily optimised cuFFT library is then used to execute batched FFTs directly on the device, maximising throughput for large-scale data processing or real-time physical simulations. My batching implementation also optimises cuFFT execution of the FFT.
+  * Both 32-bit and 64-bit data types are supported. 32-bit preferred due to high FP32 FLOPS performance on GPUs (~30X speedup over the C++ CPU implementation).
 
 ---
 
@@ -38,56 +52,61 @@ Ensure your environment is configured with the necessary compilers and libraries
 
 ## Cloning the Repository
 
-Clone the repository and its sub-directories directly from GitHub:
+* Clone the repository and its sub-directories directly from GitHub:
 
 ```bash
-git clone https://github.com/hilays79/PolyphaseFilterbank.git
+git clone [https://github.com/hilays79/PolyphaseFilterbank.git](https://github.com/hilays79/PolyphaseFilterbank.git)
 cd PolyphaseFilterbank
-
 ```
 
 ---
 
 ## Building with CMake
 
-The project utilizes CMake to seamlessly manage and compile both the CPU (`PFB_CPU`) and GPU (`PFB_GPU`) source codes.
+* The project utilizes CMake to seamlessly manage and compile both the CPU (`PFB_CPU`) and GPU (`PFB_GPU`) source codes.
 
 1. **Create a dedicated build directory** inside CPU and GPU root directories: `PFB_cpp` and `PFB_CUDA`, respectively.
+
 ```bash
 mkdir build && cd build
 
 ```
 
-
 2. **Generate the necessary Makefiles** (CMake will automatically detect your C++ and CUDA toolchains):
+
 * On MacOS:
 
+```bash
+CXX=g++-15 CC=gcc-15 cmake ..
 
+```
+
+* On Linux:
 
 ```bash
-    CXX=g++-15 CC=gcc-15 cmake ..
+cmake ..
+
 ```
-*   On Linux:
+
+3. **Compile the executables:**
+
 ```bash
-    cmake ..
+make
+
 ```
-3.  **Compile the executables:**
-```bash
-    make
-```
-This will generate the `pfb_app` and `PFB_app` binary inside the `build/` directories of C++ and CUDA implementations, respectively.
+
+* This will generate the `pfb_app` and `PFB_app` binary inside the `build/` directories of C++ and CUDA implementations, respectively.
 
 ---
 
 ## Executable Usage
 
-Once compiled successfully, the executables will be generated in their respective build subdirectories. You can run them by passing the required algorithm parameters. 
-
-Note that the CUDA implementation has the ability to use both C++ (CPU) and CUDA (GPU) implementations to compare the results and execution times. Thus, the C++ implementation need not to executed separately. 
-
-In `main.cu` of the `PFB_CUDA` implementation, making `CPU_verification = true;` results in the CUDA code compiling both C++ and CUDA implementations.
-
-If the `read_from_file` is enabled and input binary files are absent in the `Data/` directory, benchmarking tests using Python can be run. `create_binary_test_signals()` in the code `generate_binary_data.py` in `PFB_python/` directory has the ability to create binary data formatted test signals.
+* Once compiled successfully, the executables will be generated in their respective build subdirectories.
+* You can run them by passing the required algorithm parameters.
+* Note that the CUDA implementation has the ability to use both C++ (CPU) and CUDA (GPU) implementations to compare the results and execution times. Thus, the C++ implementation need not to executed separately.
+* In `main.cu` of the `PFB_CUDA` implementation, making `CPU_verification = true;` results in the CUDA code compiling both C++ and CUDA implementations.
+* If the `read_from_file` is enabled and input binary files are absent in the `Data/` directory, benchmarking tests using Python can be run.
+* `create_binary_test_signals()` in the code `generate_binary_data.py` in `PFB_python/` directory has the ability to create binary data formatted test signals.
 
 ### Example execution (only C++ CPU):
 
@@ -118,9 +137,9 @@ If the `read_from_file` is enabled and input binary files are absent in the `Dat
 
 ## Python Benchmarking
 
-To validate accuracy and compare the execution speed across the different environments, you can utilize the provided Python scripts. These benchmarks test execution times, setup times, compares CPU and GPU implementations.
-
-The primary testing and benchmarking suite is handled by `python_c_comparison.py`. This script handles the end-to-end pipeline:
+* To validate accuracy and compare the execution speed across the different environments, you can utilize the provided Python scripts.
+* These benchmarks test execution times, setup times, compares CPU and GPU implementations.
+* The primary testing and benchmarking suite is handled by `python_c_comparison.py`. This script handles the end-to-end pipeline:
 
 1. It checks for the necessary binary test signals (e.g., complex phasors) in the `Data/input_files/` directory and generates them if they don't exist.
 2. It runs the Python PFB implementation (if run_python enabled), C++ PFB implementation (if CPU_verification=true in main.cu of PFB_CUDA), CUDA PFB implementation, and records the time.
@@ -129,14 +148,14 @@ The primary testing and benchmarking suite is handled by `python_c_comparison.py
 
 ### Execution
 
-**Step 1:** Navigate to the Python codes directory and ensure you have python3 and pip installed:
+* **Step 1:** Navigate to the Python codes directory and ensure you have python3 and pip installed:
 
 ```console
 cd PFB_python/
 
 ```
 
-**If you prefer to work in a virtual environment:**
+* **If you prefer to work in a virtual environment:**
 
 ```console
 virtualenv -p python3 .venv
@@ -144,21 +163,21 @@ source .venv/bin/activate
 
 ```
 
-**Step 2:** If you do not have the dependencies installed, run:
+* **Step 2:** If you do not have the dependencies installed, run:
 
 ```console
 pip install numpy scipy matplotlib ipdb
 
 ```
 
-**Step 3:** Run the benchmarking script:
+* **Step 3:** Run the benchmarking script:
 
 ```console
 python python_c_comparison.py
 
 ```
 
-Several different functions are provided to perform benchmarking between different tap sizes, channels, batch sizes, and create relevant plots.
+* Several different functions are provided to perform benchmarking between different tap sizes, channels, batch sizes, and create relevant plots.
 
 ```
 
