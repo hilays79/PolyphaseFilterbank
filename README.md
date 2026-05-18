@@ -50,7 +50,7 @@ Ensure your environment is configured with the necessary compilers and libraries
 * Python 3.8+
 * `numpy`
 * `scipy`
-* `matplotlib` (for visualizing filter responses and output data)
+* `matplotlib` (for visualising filter responses and output data)
 
 ---
 
