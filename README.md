@@ -64,17 +64,17 @@ mkdir build && cd build
 
 
 
-```console
-        CXX=g++-15 CC=gcc-15 cmake ..
-        ```
-    *   On Linux:
-        ```console
-        cmake ..
-        ```
+```bash
+    CXX=g++-15 CC=gcc-15 cmake ..
+```
+*   On Linux:
+```bash
+    cmake ..
+```
 3.  **Compile the executables:**
-    ```bash
+```bash
     make
-    ```
+```
     > This will generate the `pfb_app` and `PFB_app` binary inside the `build/` directories of C++ and CUDA implementations, respectively.
 
 ---
