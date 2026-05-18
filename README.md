@@ -92,9 +92,8 @@ mkdir build && cd build
 ```
 
 3. **Compile the executables:**
-   ```bash
+```bash
    make
-
 ```
 
 * This will generate the `pfb_app` and `PFB_app` binary inside the `build/` directories of C++ and CUDA implementations, respectively.
@@ -179,7 +178,7 @@ python python_c_comparison.py
 ```
 
 
-* If all steps have been followed correctly, the user should see the terminal output that looks like the following benchmark run on my machine with RTX5070Ti GPU.
+* If all steps have been followed correctly, the user should see the terminal output that looks like the following benchmark run on my machine with RTX5070Ti GPU (scroll to see all the columns).
 
 | Data (GB) | IN/OUT | Py Time | C++ Set | C++ Exe | GPU Set | GPU Exe | Spd(C/Py) | Spd(G/Py) | Exe(C/G) | Diff P-C | Diff P-G | Diff C-G |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -200,7 +199,3 @@ python python_c_comparison.py
 * This is run with the most basic GPU implementation, and even that is 31X faster than the C++ CPU implementation and 101.5X faster than the Python CPU implementation.
 * Further optimisations with batching, and transposed kernels provide additional benefits.
 * The user can play around with the other plotting scripts and advanced benchmarking to generate more useful and detailed comparisons with batching.
-
-```
-
-```
