@@ -63,7 +63,7 @@ cd PolyphaseFilterbank
 
 ## Building with CMake
 
-* The project utilizes CMake to seamlessly manage and compile both the CPU (`PFB_CPU`) and GPU (`PFB_GPU`) source codes.
+* The project utilises CMake to manage and compile both the CPU (`PFB_CPU`) and GPU (`PFB_GPU`) source codes.
 
 1. **Create a dedicated build directory** inside CPU and GPU root directories: `PFB_cpp` and `PFB_CUDA`, respectively.
 
@@ -72,16 +72,16 @@ mkdir build && cd build
 
 ```
 
-2. **Generate the necessary Makefiles** (CMake will automatically detect your C++ and CUDA toolchains):
+2. **Generate the necessary Makefiles** (CMake will automatically detect your C++ and CUDA toolchains and throw errors if necessary libraries are not installed):
 
-* On MacOS:
+* On MacOS (for C++):
 
 ```bash
 CXX=g++-15 CC=gcc-15 cmake ..
 
 ```
 
-* On Linux:
+* On Linux (for both C++ and CUDA):
 
 ```bash
 cmake ..
@@ -105,10 +105,10 @@ make
 * You can run them by passing the required algorithm parameters.
 * Note that the CUDA implementation has the ability to use both C++ (CPU) and CUDA (GPU) implementations to compare the results and execution times. Thus, the C++ implementation need not to executed separately.
 * In `main.cu` of the `PFB_CUDA` implementation, making `CPU_verification = true;` results in the CUDA code compiling both C++ and CUDA implementations.
-* If the `read_from_file` is enabled and input binary files are absent in the `Data/` directory, benchmarking tests using Python can be run.
-* `create_binary_test_signals()` in the code `generate_binary_data.py` in `PFB_python/` directory has the ability to create binary data formatted test signals.
+* If the `read_from_file` is enabled and input binary files are absent in the `Data/` directory, benchmarking tests using Python can be run to generate the files.
+* Alternatively, `create_binary_test_signals()` in the code `generate_binary_data.py` in `PFB_python/` directory has the ability to create binary data formatted test signals.
 
-### Example execution (only C++ CPU):
+### Example execution (only C++ CPU, not necessary if CPU_verification is turned on in CUDA implementation):
 
 ```bash
 ./pfb_app 100 64 64 0
@@ -137,7 +137,7 @@ make
 
 ## Python Benchmarking
 
-* To validate accuracy and compare the execution speed across the different environments, you can utilize the provided Python scripts.
+* To validate accuracy and compare the execution speed across the different environments, you can utilise the provided Python scripts.
 * These benchmarks test execution times, setup times, compares CPU and GPU implementations.
 * The primary testing and benchmarking suite is handled by `python_c_comparison.py`. This script handles the end-to-end pipeline:
 
@@ -177,8 +177,25 @@ python python_c_comparison.py
 
 ```
 
-* Several different functions are provided to perform benchmarking between different tap sizes, channels, batch sizes, and create relevant plots.
+* If all steps have been followed correctly, the user should see the terminal output that looks like the following benchmark run on my machine with RTX5070Ti GPU.
 
-```
+python python_c_comparison.py 
+Data (GB) | IN/OUT | Py Time   | C++ Set   | C++ Exe   | GPU Set   | GPU Exe   | Spd(C/Py) | Spd(G/Py) | Exe(C/G) | Diff P-C | Diff P-G | Diff C-G
+-------------------------------------------------------------------------------------------------------------------------------------------------
+0.0004    | 32/32  | 0.41289   | 0.00045   | 0.00020   | 0.00115   | 0.00095   | 635.9x    | 196.5x    | 0.2x     | 9.0e-05  | 6.3e-05  | 1.2e-04 
+0.0008    | 32/32  | 0.00375   | 0.00058   | 0.00035   | 0.00124   | 0.00097   | 4.0x      | 1.7x      | 0.4x     | 1.2e-04  | 9.0e-05  | 1.5e-04 
+0.0015    | 32/32  | 0.00647   | 0.00095   | 0.00066   | 0.00135   | 0.00098   | 4.0x      | 2.8x      | 0.7x     | 1.2e-04  | 9.0e-05  | 1.5e-04 
+0.0031    | 32/32  | 0.01328   | 0.00162   | 0.00122   | 0.00159   | 0.00099   | 4.7x      | 5.1x      | 1.2x     | 1.2e-04  | 9.3e-05  | 1.5e-04 
+0.0061    | 32/32  | 0.02761   | 0.00305   | 0.00249   | 0.00192   | 0.00099   | 5.0x      | 9.5x      | 2.5x     | 1.2e-04  | 9.3e-05  | 1.5e-04 
+0.0122    | 32/32  | 0.05621   | 0.00562   | 0.00581   | 0.00248   | 0.00106   | 4.9x      | 15.9x     | 5.5x     | 1.2e-04  | 9.3e-05  | 1.5e-04 
+0.0244    | 32/32  | 0.11198   | 0.01093   | 0.01209   | 0.00342   | 0.00131   | 4.9x      | 23.6x     | 9.2x     | 1.2e-04  | 9.3e-05  | 1.5e-04 
+0.0488    | 32/32  | 0.22099   | 0.02285   | 0.02418   | 0.00545   | 0.00172   | 4.7x      | 30.8x     | 14.1x    | 1.2e-04  | 9.3e-05  | 1.8e-04 
+0.0977    | 32/32  | 0.44544   | 0.04213   | 0.05000   | 0.00983   | 0.00246   | 4.8x      | 36.2x     | 20.4x    | 1.2e-04  | 1.2e-04  | 1.8e-04 
+0.1953    | 32/32  | 0.89004   | 0.07893   | 0.09599   | 0.01809   | 0.00399   | 5.1x      | 40.3x     | 24.1x    | 1.2e-04  | 1.2e-04  | 1.8e-04 
+0.3906    | 32/32  | 1.77462   | 0.15684   | 0.18719   | 0.03409   | 0.00697   | 5.2x      | 43.2x     | 26.9x    | 1.2e-04  | 1.2e-04  | 1.8e-04 
+0.7812    | 32/32  | 5.81942   | 0.32366   | 0.38186   | 0.06491   | 0.01314   | 8.2x      | 74.6x     | 29.1x    | 1.2e-04  | 1.2e-04  | 1.8e-04 
+1.5625    | 32/32  | 15.14191  | 0.62367   | 0.77989   | 0.12402   | 0.02517   | 10.8x     | 101.5x    | 31.0x    | 1.2e-04  | 1.2e-04  | 1.8e-04 
 
-```
+* This is run with the most basic GPU implementation, and even that is 31X faster than the C++ CPU implementation and 101.5X faster than the Python CPU implementation.
+* Further optimisations with batching, and transposed kernels provide additional benefits.
+* The user can play around with the other plotting scripts and advanced benchmarking to generate more useful and detailed comparisons with batching. 

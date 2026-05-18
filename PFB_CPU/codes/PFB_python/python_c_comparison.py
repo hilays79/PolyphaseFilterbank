@@ -617,9 +617,9 @@ if __name__ == "__main__":
     
     # Easily toggle Python execution on or off here
     run_python_baseline = True
-    
+    run_benchmark(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
     # Now call the plotting function instead of run_benchmark directly
     # benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
     # benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)
-    benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=8, P=512, verify_diff=False)
-    plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=False)
+    # benchmarking_batch_chunk(in_NBIT_cpp, out_NBIT_cpp, M=8, P=512, verify_diff=False)
+    # plot_batched_results(in_NBIT_cpp, out_NBIT_cpp, verify_diff=False)
