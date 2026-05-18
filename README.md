@@ -75,7 +75,7 @@ mkdir build && cd build
 ```bash
     make
 ```
-    > This will generate the `pfb_app` and `PFB_app` binary inside the `build/` directories of C++ and CUDA implementations, respectively.
+This will generate the `pfb_app` and `PFB_app` binary inside the `build/` directories of C++ and CUDA implementations, respectively.
 
 ---
 
@@ -123,8 +123,8 @@ To validate accuracy and compare the execution speed across the different enviro
 The primary testing and benchmarking suite is handled by `python_c_comparison.py`. This script handles the end-to-end pipeline:
 
 1. It checks for the necessary binary test signals (e.g., complex phasors) in the `Data/input_files/` directory and generates them if they don't exist.
-2. It runs the Python PFB implementation and records the time.
-3. It executes the CUDA compiled `PFB_app` binary (handling the relative paths automatically) and records its setup and execution times.
+2. It runs the Python PFB implementation (if run_python enabled), C++ PFB implementation (if CPU_verification=true in main.cu of PFB_CUDA), CUDA PFB implementation, and records the time.
+3. The execution of the CUDA compiled `PFB_app` binary (handling the relative paths automatically) and its setup and execution times recording is done automatically.
 4. Make sure `CPU_verification` is `true` if one desires to benchmark both CPU and GPU times.
 
 ### Execution
