@@ -260,48 +260,48 @@ void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
 template <typename T>
 void PFB<T>::FIR(int i_batch) {
     // Non-transposed kernel implementation for FIR convolution. BlockX time blocks, ThreadX channels
-    // auto e_start = std::chrono::high_resolution_clock::now(); 
+    auto e_start = std::chrono::high_resolution_clock::now(); 
     
-    // // Pointer offset moves forward by the exact output size per batch
-    // int in_offset = i_batch * N_out_blocks_batch * n_chan;
-    // int out_offset = i_batch * N_out_blocks_batch * n_chan;
-
-    // int threadsPerBlock = std::min(n_chan, 1024); 
-    // dim3 blockDim(threadsPerBlock); 
-    // int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); 
-    // int numGridBlocks_y = N_out_blocks_batch; 
-
-    // if (atomic) {
-    //     dim3 gridDim(numGridBlocks_y, numGridBlocks_x, n_taps); 
-    //     FIR_atomic_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
-    // } else {
-    //     dim3 gridDim(numGridBlocks_y, numGridBlocks_x); 
-    //     FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
-    // }
-    
-    // CUDA_CHECK(cudaDeviceSynchronize());
-    // auto e_end = std::chrono::high_resolution_clock::now();
-    // exec_time += std::chrono::duration<double>(e_end - e_start).count();
-    // fir_time += std::chrono::duration<double>(e_end - e_start).count();
-
-    // Transposed kernel implementation for FIR convolution. BlockX Time Blocks in multiples of 1024, BlockY channels, ThreadX time blocks
-    auto e_start = std::chrono::high_resolution_clock::now();
-
     // Pointer offset moves forward by the exact output size per batch
     int in_offset = i_batch * N_out_blocks_batch * n_chan;
     int out_offset = i_batch * N_out_blocks_batch * n_chan;
 
-    int threadsPerBlock = 256;
-    int numGridBlocks_x = cuda::ceil_div(N_out_blocks_batch, threadsPerBlock);
-    int numGridBlocks_y = n_chan;
-    dim3 blockDim(threadsPerBlock);
-    dim3 gridDim(numGridBlocks_x, numGridBlocks_y);
-    FIR_convolution_transposed<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_in_blocks_batch, N_out_blocks_batch, filter_length);
+    int threadsPerBlock = std::min(n_chan, 1024); 
+    dim3 blockDim(threadsPerBlock); 
+    int numGridBlocks_x = cuda::ceil_div(n_chan, threadsPerBlock); 
+    int numGridBlocks_y = N_out_blocks_batch; 
 
+    if (atomic) {
+        dim3 gridDim(numGridBlocks_y, numGridBlocks_x, n_taps); 
+        FIR_atomic_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
+    } else {
+        dim3 gridDim(numGridBlocks_y, numGridBlocks_x); 
+        FIR_convolution<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_out_blocks_batch, filter_length);
+    }
+    
     CUDA_CHECK(cudaDeviceSynchronize());
     auto e_end = std::chrono::high_resolution_clock::now();
     exec_time += std::chrono::duration<double>(e_end - e_start).count();
     fir_time += std::chrono::duration<double>(e_end - e_start).count();
+
+    // // Transposed kernel implementation for FIR convolution. BlockX Time Blocks in multiples of 1024, BlockY channels, ThreadX time blocks
+    // auto e_start = std::chrono::high_resolution_clock::now();
+
+    // // Pointer offset moves forward by the exact output size per batch
+    // int in_offset = i_batch * N_out_blocks_batch * n_chan;
+    // int out_offset = i_batch * N_out_blocks_batch * n_chan;
+
+    // int threadsPerBlock = 256;
+    // int numGridBlocks_x = cuda::ceil_div(N_out_blocks_batch, threadsPerBlock);
+    // int numGridBlocks_y = n_chan;
+    // dim3 blockDim(threadsPerBlock);
+    // dim3 gridDim(numGridBlocks_x, numGridBlocks_y);
+    // FIR_convolution_transposed<T><<<gridDim, blockDim>>>(d_inputData + in_offset, d_coeffs, d_outputDataComplex + out_offset, n_taps, n_chan, N_in_blocks_batch, N_out_blocks_batch, filter_length);
+
+    // CUDA_CHECK(cudaDeviceSynchronize());
+    // auto e_end = std::chrono::high_resolution_clock::now();
+    // exec_time += std::chrono::duration<double>(e_end - e_start).count();
+    // fir_time += std::chrono::duration<double>(e_end - e_start).count();
 }
 
 template <typename T>
