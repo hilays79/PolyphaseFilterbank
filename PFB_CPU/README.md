@@ -1,4 +1,8 @@
-<h1 align="center">Fourier Space: Polyphase Filter Bank (PFB) Benchmarking</h1>
+<h1 align="center">Polyphase Filter Bank (PFB) Benchmarking (old)</h1>
+
+This README was created before PFB GPU implementation and has not been updated and maintained carefully. 
+
+Now it is part of a bigger pipeline, so instructions here might be outdated and the user should follow instructions at https://github.com/hilays79/PolyphaseFilterbank 
 
 This repository contains tools and implementations for benchmarking a Polyphase Filter Bank (PFB) spectrometer. It features both a baseline Python implementation and an optimized C++ implementation to compare processing speeds, setup times, and numerical accuracy.
 
