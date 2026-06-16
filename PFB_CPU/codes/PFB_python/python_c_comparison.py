@@ -60,6 +60,16 @@ def load_comparison_arrays(signal_type, n_taps, n_chan_out, n_windows, out_NBIT_
     
     return py_data, cpp_data, cuda_data
 
+def load_comparison_arrays_path(path1, path2):
+    """
+    Finds, parses, and returns the Python, C++, and CUDA output arrays for a specific test run.
+    """
+        
+    path1_header, path1_data = gbd.read_dada_file(path1)
+    path2_header, path2_data = gbd.read_dada_file(path2)
+    
+    return path1_data, path2_data
+
 def calculate_comparison_metrics(py_array, cpp_array, cuda_array):
     """Calculate and print comparison metrics between the three arrays."""
     # Ensure shapes match
@@ -616,8 +626,165 @@ if __name__ == "__main__":
     out_NBIT_cpp = 32
     
     # Easily toggle Python execution on or off here
-    run_python_baseline = True
-    run_benchmark(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
+    # run_python_baseline = True
+    # run_benchmark(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
+
+    # -----------------------------------------------------------------------------
+    # Critically sampled PFB
+    # Print some comparisons between different implementations
+    # Absolute maximum difference (32-bit RAM and CUDA)
+    # path1 = "/home/hshah/src/test_data/RAM/2032-01-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2032-01-01-12:00:00_0000000000000000.000000.dada"
+
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # print("Absolute maximum difference (32-bit RAM and CUDA): ", str(np.max(np.abs(array1-array2))))
+
+    # # Absolute maximum difference (64-bit RAM and CUDA)
+    # path1 = "/home/hshah/src/test_data/RAM/2064-01-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2064-01-01-12:00:00_0000000000000000.000000.dada"
+
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # print("Absolute maximum difference (64-bit RAM and CUDA): ", str(np.max(np.abs(array1-array2))))
+
+    # # Absolute maximum difference (16-bit CUDA and 32-bit CUDA)
+    # path1 = "/home/hshah/src/test_data/CUDA/2016-01-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2032-01-01-12:00:00_0000000000000000.000000.dada"
+
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # array1_complex = array1['real'].astype(np.float32) + 1j * array1['imag'].astype(np.float32)
+
+    # print("Absolute maximum difference (16-bit CUDA and 32-bit CUDA): ", str(np.max(np.abs(array1_complex - array2))))
+
+    # # Absolute maximum difference (16-bit CUDA and 64-bit CUDA)
+    # path1 = "/home/hshah/src/test_data/CUDA/2016-01-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2064-01-01-12:00:00_0000000000000000.000000.dada"
+
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # array1_complex = array1['real'].astype(np.float32) + 1j * array1['imag'].astype(np.float32)
+
+    # print("Absolute maximum difference (16-bit CUDA and 64-bit CUDA): ", str(np.max(np.abs(array1_complex - array2))))
+
+    # # Absolute maximum difference (32-bit RAM pol2 and 2 32-bit RAM pol1)
+    # p2_path = "/home/hshah/src/test_data/RAM/2032-02-01-12:00:00_0000000000000000.000000.dada"
+    # p1_path1 = "/home/hshah/src/test_data/RAM/2032-01-01-12:00:00_0000000000000000.000000.dada"
+    # p1_path2 = "/home/hshah/src/test_data/RAM/2032-01-02-12:00:00_0000000000000000.000000.dada"
+
+    # p2_array, p1_array1 = load_comparison_arrays_path(p2_path, p1_path1)
+    # p2_array, p1_array2 = load_comparison_arrays_path(p2_path, p1_path2)
+    # stack_p1_array = np.vstack([p1_array1, p1_array2])
+
+    # print("Absolute maximum difference (32-bit RAM pol2 and 2 32-bit RAM pol1): ", str(np.max(np.abs(p2_array - stack_p1_array))))
+
+    # # Absolute maximum difference (64-bit RAM pol2 and 2 64-bit RAM pol1)
+    # p2_path = "/home/hshah/src/test_data/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    # p1_path1 = "/home/hshah/src/test_data/RAM/2064-01-01-12:00:00_0000000000000000.000000.dada"
+    # p1_path2 = "/home/hshah/src/test_data/RAM/2064-01-02-12:00:00_0000000000000000.000000.dada"
+
+    # p2_array, p1_array1 = load_comparison_arrays_path(p2_path, p1_path1)
+    # p2_array, p1_array2 = load_comparison_arrays_path(p2_path, p1_path2)
+    # stack_p1_array = np.vstack([p1_array1, p1_array2])
+
+    # print("Absolute maximum difference (64-bit RAM pol2 and 2 64-bit RAM pol1): ", str(np.max(np.abs(p2_array - stack_p1_array))))
+
+    # # Absolute maximum difference (32-bit RAM and CUDA pol2)
+    # path1 = "/home/hshah/src/test_data/RAM/2032-02-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2032-02-01-12:00:00_0000000000000000.000000.dada"
+
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # print("Absolute maximum difference (32-bit RAM and CUDA, npol=2): ", str(np.max(np.abs(array1-array2))))
+
+    # # Absolute maximum difference (64-bit RAM and CUDA)
+    # path1 = "/home/hshah/src/test_data/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
+
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # print("Absolute maximum difference (64-bit RAM and CUDA, npol=2): ", str(np.max(np.abs(array1-array2))))
+
+    # # Absolute maximum difference (16-bit CUDA and 64-bit CUDA, npol=2)
+    # path1 = "/home/hshah/src/test_data/CUDA/2016-02-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
+
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # array1_complex = array1['real'].astype(np.float32) + 1j * array1['imag'].astype(np.float32)
+
+    # print("Absolute maximum difference (16-bit CUDA and 64-bit CUDA, npol=2): ", str(np.max(np.abs(array1_complex - array2))))
+
+    # -----------------------------------------------------------------------------
+    # over sampled PFB
+
+    # Absolute maximum difference (64-bit RAM and CUDA)
+    path1 = "/home/hshah/src/test_data/over/RAM/2064-01-01-12:00:00_0000000000000000.000000.dada"
+    path2 = "/home/hshah/src/test_data/over/test_output_python_freq1.0_M4_P256_W51200_noiseFalse_64.dada"
+
+    array1, array2 = load_comparison_arrays_path(path1, path2)
+
+    print("Absolute maximum difference (64-bit RAM and Python):", str(np.max(np.abs(array1 - array2[:array1.shape[0]]))))
+
+    # Absolute maximum difference (64-bit RAM pol2 and 2 64-bit RAM pol1)
+    p2_path = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    p1_path1 = "/home/hshah/src/test_data/over/test_output_python_freq1.0_M4_P256_W51200_noiseFalse_64.dada"
+    p1_path2 = "/home/hshah/src/test_data/over/test_output_python_freq2.0_M4_P256_W51200_noiseFalse_64.dada"
+
+    p2_array, p1_array1 = load_comparison_arrays_path(p2_path, p1_path1)
+    p2_array, p1_array2 = load_comparison_arrays_path(p2_path, p1_path2)
+    stack_p1_array = np.vstack([p1_array1, p1_array2])
+
+    print("Absolute maximum difference (64-bit RAM and Python, npol=2 (pol1)):", str(np.max(np.abs(p2_array[0] - p1_array1[:p2_array[0].shape[0]]))))
+    print("Absolute maximum difference (64-bit RAM and Python, npol=2 (pol2)):", str(np.max(np.abs(p2_array[1] - p1_array2[:p2_array[1].shape[0]]))))
+
+    # Absolute maximum difference (64-bit RAM and CUDA)
+    path1 = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    path2 = "/home/hshah/src/test_data/over/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
+
+    array1, array2 = load_comparison_arrays_path(path1, path2)
+    print("Absolute maximum difference (64-bit RAM and CUDA, npol=2): ", str(np.max(np.abs(array1-array2))))
+
+    # Absolute maximum difference (64-bit RAM and CUDA)
+    path1 = "/home/hshah/src/test_data/over/RAM/2064-01-01-12:00:00_0000000000000000.000000.dada"
+    path2 = "/home/hshah/src/test_data/over/CUDA/2064-01-01-12:00:00_0000000000000000.000000.dada"
+
+    array1, array2 = load_comparison_arrays_path(path1, path2)
+    print("Absolute maximum difference (64-bit RAM and CUDA, npol=1): ", str(np.max(np.abs(array1-array2))))
+
+    path1 = "/home/hshah/src/test_data/over/RAM/2032-02-01-12:00:00_0000000000000000.000000.dada"
+    path2 = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+
+    array1, array2 = load_comparison_arrays_path(path1, path2)
+
+    print("Absolute maximum difference (32-bit RAM and 64-bit RAM (npol=2)):", str(np.max(np.abs(array1 - array2))))
+
+    path1 = "/home/hshah/src/test_data/over/RAM/2032-02-01-12:00:00_0000000000000000.000000.dada"
+    path2 = "/home/hshah/src/test_data/over/CUDA/2032-02-01-12:00:00_0000000000000000.000000.dada"
+
+    array1, array2 = load_comparison_arrays_path(path1, path2)
+
+    print("Absolute maximum difference (32-bit RAM and 32-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
+
+    ## IF THE OUTPUT FROM OSAMP HAS BEEN GENERATED WITH 1/1 RATIO
+
+    path1 = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    path2 = "/home/hshah/src/test_data/over/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
+
+    array1, array2 = load_comparison_arrays_path(path1, path2)
+
+    print("Absolute maximum difference (over 64-bit RAM and over 64-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
+
+    path1 = "/home/hshah/src/test_data/over/RAM/2032-02-01-12:00:00_0000000000000000.000000.dada"
+    path2 = "/home/hshah/src/test_data/over/CUDA/2032-02-01-12:00:00_0000000000000000.000000.dada"
+
+    array1, array2 = load_comparison_arrays_path(path1, path2)
+
+    print("Absolute maximum difference (over 32-bit RAM and over 32-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
+
+    path1 = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    path2 = "/home/hshah/src/test_data/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
+
+    array1, array2 = load_comparison_arrays_path(path1, path2)
+
+    print("Absolute maximum difference (over 64-bit RAM and crit 64-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
+
+    
+    stop()
     # Now call the plotting function instead of run_benchmark directly
     # benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
     # benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)

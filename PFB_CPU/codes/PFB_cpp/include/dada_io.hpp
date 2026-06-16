@@ -104,6 +104,25 @@ namespace dada {
         f.write(reinterpret_cast<const char*>(data.data()), data.size() * sizeof(T));
     }
 
+    #include <complex>
+
+    // --- 4b. SAVER (WRITE COMPLEX) ---
+    template <typename T>
+    void save_dada_complex(const std::vector<std::complex<T>>& data, int nchan, int ndim, int nbit, const std::string& path) {
+        fs::create_directories(fs::path(path).parent_path()); 
+        
+        // Note: When calling this for complex data, ensure you pass ndim = 2
+        std::string hdr = "HDR_VERSION 1.0\nHDR_SIZE 4096\nNCHAN " + std::to_string(nchan) +
+                        "\nNPOL 1\nNDIM " + std::to_string(ndim) + "\nNBIT " + std::to_string(nbit) + "\n";
+        hdr.resize(4096, '\0'); 
+        
+        std::ofstream f(path, std::ios::binary);
+        f.write(hdr.data(), 4096);
+        
+        // Multiply by sizeof(std::complex<T>) to write both real and imaginary components
+        f.write(reinterpret_cast<const char*>(data.data()), data.size() * sizeof(std::complex<T>));
+    }
+
 // --- 5. THE END-TO-END PIPELINE (Updated to handle in_NBIT and out_NBIT) ---
     template <typename InT, typename OutT, typename Func>
     std::string run_pipeline(Func pfb_func, const std::string& type, int in_nbit, int out_nbit, int M, int P_out, int W, int ndim_out, bool noise, double freq = 1.0, int d_per = 0, int d_start = 0) {

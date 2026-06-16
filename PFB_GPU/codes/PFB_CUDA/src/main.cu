@@ -45,12 +45,13 @@ int main(int argc, char* argv[]) {
 
     double freq = 1.0;
     int ndim_out = 1;
+    int ndim_out_complex = 2;
     bool include_noise = false;
     std::string signal_type = "complex_phasors"; 
     int delta_period = 257, delta_start = 0;
 
-    std::string custom_in_path = "Random filepath"; 
-    std::string custom_out_path = "Random output filepath"; 
+    std::string custom_in_path = "/home/hshah/src/test_data/complex_phasors_freq1.0_M4_P256_W102400_noiseFalse_64.dada"; 
+    std::string custom_out_path = "/home/hshah/src/test_data/test_output_freq1.0_M4_P256_W102400_noiseFalse_64.dada"; 
 
     int n_time_blocks = M * W - M + 1;
     int n_integrated_time_blocks = n_time_blocks / n_integrations;
@@ -223,27 +224,27 @@ int main(int argc, char* argv[]) {
     else if (read_from_file == 2 && in_NBIT == 64 && out_NBIT == 64) {
         std::cout << "\n=== Read Custom | 64-bit In | 64-bit Out ===\n";
         auto signal = dada::read_dada_for_pfb<std::complex<double>>(custom_in_path).data; 
-        std::vector<double> gpu_output(output_length);
+        // std::vector<double> gpu_output(output_length);
 
-        cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<double>), cudaHostRegisterDefault);
-        cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(double), cudaHostRegisterDefault);
+        // cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<double>), cudaHostRegisterDefault);
+        // cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(double), cudaHostRegisterDefault);
 
-        PFB<double> testPFB(M, P, W, n_integrations, n_batches, atomic);
-        testPFB.execute_PFB(signal.data());
-        testPFB.getOutput(gpu_output.data());
+        // PFB<double> testPFB(M, P, W, n_integrations, n_batches, atomic);
+        // testPFB.execute_PFB(signal.data());
+        // testPFB.getOutput(gpu_output.data());
 
-        cudaHostUnregister(signal.data());
-        cudaHostUnregister(gpu_output.data());
+        // cudaHostUnregister(signal.data());
+        // cudaHostUnregister(gpu_output.data());
 
-        dada::save_dada(gpu_output, P, ndim_out, out_NBIT, custom_out_path);
+        // dada::save_dada(gpu_output, P, ndim_out, out_NBIT, custom_out_path);
 
         if (CPU_verification) {
-            std::vector<double> cpu_output = PFB_filterbank<double>(signal, M, P, W, n_integrations);
-            auto max_diff = calculate_max_difference(gpu_output, cpu_output);
-            std::cout << "Max Diff: " << max_diff << "\n";
+            std::vector<std::complex<double>> cpu_output = PFB_filterbank_complex<double>(signal, M, P, W);
+            // auto max_diff = calculate_max_difference(gpu_output, cpu_output);
+            // std::cout << "Max Diff: " << max_diff << "\n";
             
-            std::string cpu_out_path = custom_out_path + "_cpu";
-            dada::save_dada(cpu_output, P, ndim_out, out_NBIT, cpu_out_path);
+            // std::string cpu_out_path = custom_out_path;
+            dada::save_dada_complex(cpu_output, P, ndim_out_complex, out_NBIT, custom_out_path);
         }
     }
     else if (read_from_file == 2 && in_NBIT == 64 && out_NBIT == 32) {
@@ -276,27 +277,27 @@ int main(int argc, char* argv[]) {
     else if (read_from_file == 2 && in_NBIT == 32 && out_NBIT == 32) {
         std::cout << "\n=== Read Custom | 32-bit In | 32-bit Out ===\n";
         auto signal = dada::read_dada_for_pfb<std::complex<float>>(custom_in_path).data; 
-        std::vector<float> gpu_output(output_length);
+        // std::vector<float> gpu_output(output_length);
 
-        cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<float>), cudaHostRegisterDefault);
-        cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(float), cudaHostRegisterDefault);
+        // cudaHostRegister(signal.data(), signal.size() * sizeof(std::complex<float>), cudaHostRegisterDefault);
+        // cudaHostRegister(gpu_output.data(), gpu_output.size() * sizeof(float), cudaHostRegisterDefault);
 
-        PFB<float> testPFB(M, P, W, n_integrations, n_batches, atomic);
-        testPFB.execute_PFB(signal.data());
-        testPFB.getOutput(gpu_output.data());
+        // PFB<float> testPFB(M, P, W, n_integrations, n_batches, atomic);
+        // testPFB.execute_PFB(signal.data());
+        // testPFB.getOutput(gpu_output.data());
 
-        cudaHostUnregister(signal.data());
-        cudaHostUnregister(gpu_output.data());
+        // cudaHostUnregister(signal.data());
+        // cudaHostUnregister(gpu_output.data());
 
-        dada::save_dada(gpu_output, P, ndim_out, out_NBIT, custom_out_path);
+        // dada::save_dada(gpu_output, P, ndim_out, out_NBIT, custom_out_path);
 
         if (CPU_verification) {
-            std::vector<float> cpu_output = PFB_filterbank<float>(signal, M, P, W, n_integrations);
-            auto max_diff = calculate_max_difference(gpu_output, cpu_output);
-            std::cout << "Max Diff: " << max_diff << "\n";
+            std::vector<std::complex<float>> cpu_output = PFB_filterbank_complex<float>(signal, M, P, W);
+            // auto max_diff = calculate_max_difference(gpu_output, cpu_output);
+            // std::cout << "Max Diff: " << max_diff << "\n";
             
-            std::string cpu_out_path = custom_out_path + "_cpu";
-            dada::save_dada(cpu_output, P, ndim_out, out_NBIT, cpu_out_path);
+            // std::string cpu_out_path = custom_out_path + "_cpu";
+            dada::save_dada_complex(cpu_output, P, ndim_out_complex, out_NBIT, custom_out_path);
         }
     }
     else {

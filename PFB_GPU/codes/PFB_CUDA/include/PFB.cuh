@@ -238,7 +238,7 @@ void PFB<T>::execute_PFB(std::complex<T>* h_inputData) {
 
     // 3) Generate filter coefficients 
     int half_filter_length = cuda::ceil_div(filter_length, 2); 
-    std::vector<T> win_coeffs = windowing::generate_win_coeffs<T>(n_taps, n_chan);  
+    std::vector<T> win_coeffs = windowing::generate_win_coeffs<T>(n_taps, n_chan);
     cudaHostRegister(win_coeffs.data(), win_coeffs.size() * sizeof(T), cudaHostRegisterDefault);
     CUDA_CHECK(cudaMemcpy(d_coeffs, win_coeffs.data(), half_filter_length * sizeof(T), cudaMemcpyHostToDevice));
     cudaHostUnregister(win_coeffs.data());
