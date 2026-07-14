@@ -95,6 +95,7 @@ def test_temporal_dirac_comb(n_taps, n_chan, n_windows, delta_period, delta_star
         axs[2, 2].set_xlabel("Channel")
         axs[2, 2].set_ylabel("Time [Blocks]")
         fig.colorbar(im22, ax=axs[2, 2], label="Power [dB]")
+        stop()
 
         plt.suptitle(f"Dirac Comb Leakage Test (Period={delta_period}, Start={delta_start})", fontsize=16)
         plt.tight_layout()
@@ -291,19 +292,29 @@ def test_spectral_leakage_sine(n_taps, n_chan, n_windows, freq, include_noise=Tr
     osr = 32/27 # Oversampling ratio
     data = ts.generate_sine_signal(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, freq=freq, include_noise=include_noise, complex_sine=complex_sine)
     # Apply PFB spectrometer to the generated sine wave signal
-    X_psd_PFB = PFB.pfb_spectrometer(data, n_taps=n_taps, n_chan=n_chan, n_int=1, window_fn="hamming")
+    X_psd_PFB = PFB.pfb_spectrometer(data, n_taps=n_taps, n_chan=n_chan, n_int=1, window_fn="hamming", PSD=False)
     X_psd_brute = PFB.brute_force_spectrometer(data, n_taps=n_taps, n_chan=n_chan, n_int=1, window_fn="hamming")
-    X_psd_fft = PFB.standard_fft_spectrometer(data, n_chan=n_chan, n_int=1, window_fn="rectangular")
+    X_psd_fft = PFB.standard_fft_spectrometer(data, n_chan=n_chan, n_int=1, window_fn="rectangular", PSD=False)
     x_psd_fft_windowed = PFB.standard_fft_spectrometer(data, n_chan=n_chan, n_int=1, window_fn="hamming")
-    x_psd_overPFB = OverPFB.pfb_spectrometer(data, n_taps=n_taps, n_chan=n_chan, osr=osr, n_int=1, window_fn="hamming")
-    stop()
+    x_psd_overPFB = OverPFB.pfb_spectrometer(data, n_taps=n_taps, n_chan=n_chan, osr=osr, n_int=1, window_fn="hamming", PSD=False)
+    # x_fine_fft_overPFB = np.fft.fft(x_psd_overPFB[:, 3])
+    # plt.plot(np.arange(len(x_fine_fft_overPFB)), np.abs(x_fine_fft_overPFB))
+    # plt.yscale("log")
+    # plt.savefig("/home/hshah/PolyphaseFilterbank/PFB_CPU/codes/PFB_python/images/temp.png", dpi=300, bbox_inches='tight')
+    # stop()
+    # plt.plot(np.arange(len(X_psd_PFB[0])), np.abs(X_psd_PFB[0]), label='critical')
+    # plt.plot(np.arange(len(x_psd_overPFB[0])), np.abs(x_psd_overPFB[0]), label='over')
+    # plt.plot(np.arange(len(X_psd_fft[0])), np.abs(X_psd_fft[0]), label='fft')
+    # plt.yscale("log")
+    # plt.legend()
+    # plt.savefig("/home/hshah/PolyphaseFilterbank/PFB_CPU/codes/PFB_python/images/temp.png", dpi=300, bbox_inches='tight')
+    # stop()
 
     if plot:
         plt.figure(figsize=(10, 6))
         plt.plot(PFB.db(X_psd_PFB)[0], label='PFB', alpha=1)
         plt.plot(PFB.db(X_psd_brute)[0]-2, label='Brute Force (shifted down by 2 dB for visibility)', alpha=0.5)
         plt.plot(PFB.db(X_psd_fft)[0]+2, label='FFT (shifted up by 2 dB for visibility)', alpha=1)
-        plt.plot(PFB.db(x_psd_fine_fft)[0]+4, label='Fine FFT (shifted up by 4 dB for visibility)', alpha=1)
         plt.plot(OverPFB.db(x_psd_overPFB)[0], label='OverPFB (OSR={:.2f})'.format(osr), alpha=1, linestyle='--')
 
         # Add some padding to the title to push it up above the new legend space
@@ -346,11 +357,11 @@ def test_spectral_leakage_sine(n_taps, n_chan, n_windows, freq, include_noise=Tr
 
     stop()
 
-def test_spectral_leakage_fine_sine(data, n_taps, n_chan, n_windows, freq, include_noise=True, plot=True, complex_sine=False):
+def test_spectral_leakage_fine_sine(n_taps, n_chan, n_windows, freq, include_noise=True, plot=True, complex_sine=False):
     """ Test spectral leakage in a PFB spectrometer by generating a sine wave signal and analyzing the resulting spectrum. """
     osr = 32/27 # Oversampling ratio
     # Generate the tone
-    # data = ts.generate_sine_signal(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, freq=freq, include_noise=include_noise, complex_sine=complex_sine)
+    data = ts.generate_sine_signal(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, freq=freq, include_noise=include_noise, complex_sine=complex_sine)
     # data = ts.generate_dirac_comb_signal(n_taps, n_chan, n_windows, n_taps*n_chan*n_windows, 0, include_noise=include_noise, real=True, is_complex=True)
     # data[0] = data[0] - (1+1j)
 
@@ -566,12 +577,12 @@ def get_analytical_channel_response(n_taps, n_chan, channel=1, window_fn="hammin
 
 if __name__ == "__main__":
     n_taps = 4
-    n_chan = 256
-    n_windows = 100
-    delta_period = 102400
-    delta_start = 1025
-    freq=0.8
-    # freq = (66)*np.pi/256 # Slightly offset from bin 65's center frequency to demonstrate leakage
+    n_chan = 64
+    n_windows = 85
+    delta_period = n_taps*n_chan*n_windows
+    delta_start = n_taps*n_chan*20+1
+    # freq=1
+    freq = (6)*np.pi/64 # Slightly offset from bin 65's center frequency to demonstrate leakage
     # Angular frequency sweep from 0 to slightly past bin 2's center
     highest_channel = 3
     omegas = np.linspace(0.002, highest_channel*1.1*2*np.pi/n_chan, 1000)
@@ -580,33 +591,38 @@ if __name__ == "__main__":
     # stop()
     # test_channel_response_sweep(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, freqs=omegas, channels_to_plot=np.arange(0, highest_channel),include_noise=False, complex_sine=True)
     # get_analytical_channel_response(n_taps=n_taps, n_chan=n_chan, channel=0, window_fn="hamming", plot=True)
-    # test_temporal_dirac_comb(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, delta_period=delta_period, delta_start=delta_start, include_noise=False, real=True, is_complex=False, waterfall=False, temporal_plot=False, overPFB=True)
+    test_temporal_dirac_comb(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, delta_period=delta_period, delta_start=delta_start, include_noise=False, real=True, is_complex=False, waterfall=False, temporal_plot=False, overPFB=True)
     # animate_temporal_dirac_comb(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, delta_start=delta_start, N=100, fps=10, include_noise=False, real=True, is_complex=False)
-    # ------------ noise test ------------
-    iters = 5000
-    avg_psd_fine_fft = None
-    avg_psd_PFB_fft = None
-    avg_psd_overPFB_fft = None
-    sweep_tone_frqs = np.linspace(0.77, 0.83, iters) # Sweep across the entire frequency range to get an average response across all bins
-    data = np.zeros(n_taps*n_chan*n_windows, dtype=np.complex64) # Pre-allocate data array to avoid overhead in the loop
-    for i in range(iters):
-        data += ts.generate_sine_signal(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, freq=sweep_tone_frqs[i], include_noise=True, complex_sine=True)
-        
-    freq_fine_fft, psd_fine_fft, freq_PFB_fft, psd_PFB_fft, freq_overPFB_fft, psd_overPFB_fft = test_spectral_leakage_fine_sine(data, n_taps, n_chan, n_windows, sweep_tone_frqs[i], include_noise=False, plot=False, complex_sine=True)
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(freq_fine_fft, PFB.db(psd_fine_fft), alpha=1, label='Fine FFT (Length {})'.format(len(psd_fine_fft)))
-    plt.plot(freq_PFB_fft, PFB.db(psd_PFB_fft), label='PFB Coarse + Fine FFT', alpha=1)
-    # plt.plot(freq_overPFB_fft, PFB.db(psd_overPFB_fft), label='OverPFB Coarse + Fine FFT', alpha=1)
-    plt.xlim(freq-2*np.pi/n_chan, freq+2*np.pi/n_chan)
-    # plt.ylim(np.max(PFB.db(avg_psd_PFB_fft))-5, np.max(PFB.db(avg_psd_PFB_fft))+5)
-    # plt.ylim([10, 25])
-    plt.xlabel("Frequency [rad/sample]")
-    plt.ylabel("Power [dB]")
-    plt.title('Spectral Leakage test with Noise', pad=75) 
-    plt.grid(True, alpha=0.3)
-    plt.legend(loc='upper right')
-    plt.tight_layout()
-    plt.savefig("/home/hshah/PolyphaseFilterbank/PFB_CPU/codes/PFB_python/images/spectral_leakage_fine_sine_with_sweep.png", dpi=300, bbox_inches='tight')
-    stop()
+
+
+
+    
+    # # ------------ noise test ------------
+    # iters = 5000
+    # avg_psd_fine_fft = None
+    # avg_psd_PFB_fft = None
+    # avg_psd_overPFB_fft = None
+    # sweep_tone_frqs = np.linspace(0.77, 0.83, iters) # Sweep across the entire frequency range to get an average response across all bins
+    # data = np.zeros(n_taps*n_chan*n_windows, dtype=np.complex64) # Pre-allocate data array to avoid overhead in the loop
+    # for i in range(iters):
+    #     data += ts.generate_sine_signal(n_taps=n_taps, n_chan=n_chan, n_windows=n_windows, freq=sweep_tone_frqs[i], include_noise=True, complex_sine=True)
+        
+    # freq_fine_fft, psd_fine_fft, freq_PFB_fft, psd_PFB_fft, freq_overPFB_fft, psd_overPFB_fft = test_spectral_leakage_fine_sine(data, n_taps, n_chan, n_windows, sweep_tone_frqs[i], include_noise=False, plot=False, complex_sine=True)
+
+    # plt.figure(figsize=(10, 6))
+    # plt.plot(freq_fine_fft, PFB.db(psd_fine_fft), alpha=1, label='Fine FFT (Length {})'.format(len(psd_fine_fft)))
+    # plt.plot(freq_PFB_fft, PFB.db(psd_PFB_fft), label='PFB Coarse + Fine FFT', alpha=1)
+    # # plt.plot(freq_overPFB_fft, PFB.db(psd_overPFB_fft), label='OverPFB Coarse + Fine FFT', alpha=1)
+    # plt.xlim(freq-2*np.pi/n_chan, freq+2*np.pi/n_chan)
+    # # plt.ylim(np.max(PFB.db(avg_psd_PFB_fft))-5, np.max(PFB.db(avg_psd_PFB_fft))+5)
+    # # plt.ylim([10, 25])
+    # plt.xlabel("Frequency [rad/sample]")
+    # plt.ylabel("Power [dB]")
+    # plt.title('Spectral Leakage test with Noise', pad=75) 
+    # plt.grid(True, alpha=0.3)
+    # plt.legend(loc='upper right')
+    # plt.tight_layout()
+    # plt.savefig("/home/hshah/PolyphaseFilterbank/PFB_CPU/codes/PFB_python/images/spectral_leakage_fine_sine_with_sweep.png", dpi=300, bbox_inches='tight')
+    # stop()
     

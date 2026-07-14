@@ -631,13 +631,20 @@ if __name__ == "__main__":
 
     # -----------------------------------------------------------------------------
     # Critically sampled PFB
-    # Print some comparisons between different implementations
-    # Absolute maximum difference (32-bit RAM and CUDA)
+    # # Print some comparisons between different implementations
+    # # Absolute maximum difference (32-bit RAM and CUDA)
     # path1 = "/home/hshah/src/test_data/RAM/2032-01-01-12:00:00_0000000000000000.000000.dada"
     # path2 = "/home/hshah/src/test_data/CUDA/2032-01-01-12:00:00_0000000000000000.000000.dada"
 
     # array1, array2 = load_comparison_arrays_path(path1, path2)
-    # print("Absolute maximum difference (32-bit RAM and CUDA): ", str(np.max(np.abs(array1-array2))))
+    # print("Absolute maximum difference npol=1 (32-bit RAM and CUDA): ", str(np.max(np.abs(array1-array2))))
+
+    # path1 = "/home/hshah/src/test_data/RAM/2032-02-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2032-02-01-12:00:00_0000000000000000.000000.dada"
+
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # print("Absolute maximum difference npol=2 (32-bit RAM and CUDA): ", str(np.max(np.abs(array1-array2))))
+    # stop()
 
     # # Absolute maximum difference (64-bit RAM and CUDA)
     # path1 = "/home/hshah/src/test_data/RAM/2064-01-01-12:00:00_0000000000000000.000000.dada"
@@ -760,31 +767,32 @@ if __name__ == "__main__":
 
     print("Absolute maximum difference (32-bit RAM and 32-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
 
-    ## IF THE OUTPUT FROM OSAMP HAS BEEN GENERATED WITH 1/1 RATIO
+    # ## IF THE OUTPUT FROM OSAMP HAS BEEN GENERATED WITH 1/1 RATIO
 
-    path1 = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
-    path2 = "/home/hshah/src/test_data/over/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    # path1 = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/over/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
 
-    array1, array2 = load_comparison_arrays_path(path1, path2)
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
 
-    print("Absolute maximum difference (over 64-bit RAM and over 64-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
+    # print("Absolute maximum difference (over 64-bit RAM and over 64-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
 
-    path1 = "/home/hshah/src/test_data/over/RAM/2032-02-01-12:00:00_0000000000000000.000000.dada"
-    path2 = "/home/hshah/src/test_data/over/CUDA/2032-02-01-12:00:00_0000000000000000.000000.dada"
+    # path1 = "/home/hshah/src/test_data/over/RAM/2032-02-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/over/CUDA/2032-02-01-12:00:00_0000000000000000.000000.dada"
 
-    array1, array2 = load_comparison_arrays_path(path1, path2)
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
 
-    print("Absolute maximum difference (over 32-bit RAM and over 32-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
+    # print("Absolute maximum difference (over 32-bit RAM and over 32-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
 
-    path1 = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
-    path2 = "/home/hshah/src/test_data/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    # path1 = "/home/hshah/src/test_data/over/RAM/2064-02-01-12:00:00_0000000000000000.000000.dada"
+    # path2 = "/home/hshah/src/test_data/CUDA/2064-02-01-12:00:00_0000000000000000.000000.dada"
 
-    array1, array2 = load_comparison_arrays_path(path1, path2)
+    # array1, array2 = load_comparison_arrays_path(path1, path2)
+    # stop()
 
-    print("Absolute maximum difference (over 64-bit RAM and crit 64-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
+    # print("Absolute maximum difference (over 64-bit RAM and crit 64-bit CUDA (npol=2)):", str(np.max(np.abs(array1 - array2))))
 
     
-    stop()
+    # stop()
     # Now call the plotting function instead of run_benchmark directly
     # benchmarking_plots(in_NBIT_python, in_NBIT_cpp, out_NBIT_python, out_NBIT_cpp, run_python=run_python_baseline)
     # benchmarking_ntap_nchan_chunk(in_NBIT_cpp, out_NBIT_cpp)

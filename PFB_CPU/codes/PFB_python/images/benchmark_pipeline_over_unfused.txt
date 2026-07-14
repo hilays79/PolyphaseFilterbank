@@ -1,0 +1,62 @@
+hshah@copper:~/build/pfb-dev/src/apps$ ./pfb_benchmark -P 8192 -p 1 -O 32 -o 27
+[2026-06-29 04:38:00.447] [info] enable oversampled PFB with OSR = 32/27
+[2026-06-29 04:38:00.457] [info] Changing input_container header with nbit = 32, npol = 1, ndim = 2
+[2026-06-29 04:38:00.457] [info] janus::PFBOverCUDA::ctor
+[2026-06-29 04:38:00.457] [info] The number of taps = 4
+[2026-06-29 04:38:00.457] [info] The number of channels = 8192
+[2026-06-29 04:38:00.457] [info] osr_num = 32, osr_den = 27
+[2026-06-29 04:38:00.457] [info] input step size = 6912 (OSR=32/27 and nchannels=8192)
+[2026-06-29 04:38:00.458] [info] OSR=1.1851851851851851 used for bandpass.
+[2026-06-29 04:38:00.458] [info] Input step: 27648
+[2026-06-29 04:38:00.458] [info] Coarse search... low_ndat: 100000, high_ndat: 400000000
+[2026-06-29 04:38:01.127] [info] ndat: 110592, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 22605, time: 0.668639211
+[2026-06-29 04:38:01.701] [info] ndat: 138240, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 18084, time: 0.574180973
+[2026-06-29 04:38:02.177] [info] ndat: 165888, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 15070, time: 0.475816143
+[2026-06-29 04:38:02.540] [info] ndat: 248832, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 10046, time: 0.36309430800000003
+[2026-06-29 04:38:02.843] [info] ndat: 304128, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 8220, time: 0.303212168
+[2026-06-29 04:38:03.089] [info] ndat: 414720, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 6028, time: 0.24583626300000003
+[2026-06-29 04:38:03.314] [info] ndat: 552960, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 4521, time: 0.224825402
+[2026-06-29 04:38:03.500] [info] ndat: 746496, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 3348, time: 0.186201903
+[2026-06-29 04:38:03.668] [info] ndat: 995328, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 2511, time: 0.167727846
+[2026-06-29 04:38:03.816] [info] ndat: 1299456, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 1923, time: 0.147410124
+[2026-06-29 04:38:03.949] [info] ndat: 1741824, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 1435, time: 0.132867738
+[2026-06-29 04:38:04.072] [info] ndat: 2322432, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 1076, time: 0.122721832
+[2026-06-29 04:38:04.193] [info] ndat: 3096576, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 807, time: 0.12136801500000001
+[2026-06-29 04:38:04.334] [info] ndat: 4119552, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 606, time: 0.140966169
+[2026-06-29 04:38:04.497] [info] ndat: 5474304, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 456, time: 0.162796298
+[2026-06-29 04:38:04.699] [info] ndat: 7299072, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 342, time: 0.20166567700000002
+[2026-06-29 04:38:04.916] [info] ndat: 9704448, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 257, time: 0.216835292
+[2026-06-29 04:38:05.137] [info] ndat: 12939264, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 193, time: 0.220668782
+[2026-06-29 04:38:05.358] [info] ndat: 17197056, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 145, time: 0.220459333
+[2026-06-29 04:38:05.579] [info] ndat: 22920192, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 109, time: 0.22066422300000002
+[2026-06-29 04:38:05.798] [info] ndat: 30495744, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 81, time: 0.218641057
+[2026-06-29 04:38:06.018] [info] ndat: 40587264, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 61, time: 0.218855027
+[2026-06-29 04:38:06.238] [info] ndat: 54024192, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 46, time: 0.21977563400000003
+[2026-06-29 04:38:06.456] [info] ndat: 71912448, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 34, time: 0.216492702
+[2026-06-29 04:38:06.678] [info] ndat: 95717376, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 26, time: 0.22125376100000002
+[2026-06-29 04:38:06.897] [info] ndat: 127429632, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 19, time: 0.21638716200000002
+[2026-06-29 04:38:07.113] [info] ndat: 169592832, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 14, time: 0.213776499
+[2026-06-29 04:38:07.342] [info] ndat: 225745920, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 11, time: 0.22540706200000002
+[2026-06-29 04:38:07.571] [info] ndat: 300506112, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 8, time: 0.225849881
+[2026-06-29 04:38:07.803] [info] ndat: 400011264, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 6, time: 0.229901441
+[2026-06-29 04:38:07.921] [info] ndat: 2930688, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 853, time: 0.11805024300000001
+[2026-06-29 04:38:08.049] [info] ndat: 3511296, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 711, time: 0.127459591
+[2026-06-29 04:38:08.166] [info] ndat: 2709504, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 922, time: 0.117577814
+[2026-06-29 04:38:08.286] [info] ndat: 3124224, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 800, time: 0.119977999
+[2026-06-29 04:38:08.405] [info] ndat: 2598912, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 961, time: 0.118619312
+[2026-06-29 04:38:08.523] [info] ndat: 2847744, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 877, time: 0.117527404
+[2026-06-29 04:38:08.640] [info] ndat: 2764800, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 904, time: 0.11734831500000001
+[2026-06-29 04:38:08.759] [info] ndat: 2958336, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 845, time: 0.118827792
+[2026-06-29 04:38:08.876] [info] ndat: 2709504, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 922, time: 0.117571014
+[2026-06-29 04:38:08.994] [info] ndat: 2847744, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 877, time: 0.11762718400000001
+[2026-06-29 04:38:09.112] [info] ndat: 2681856, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 932, time: 0.11809573300000001
+[2026-06-29 04:38:09.230] [info] ndat: 2764800, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 904, time: 0.117836984
+[2026-06-29 04:38:09.348] [info] ndat: 2737152, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 913, time: 0.11772386400000001
+[2026-06-29 04:38:09.466] [info] ndat: 2792448, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 895, time: 0.117942183
+[2026-06-29 04:38:09.583] [info] ndat: 2709504, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 922, time: 0.117655014
+[2026-06-29 04:38:09.701] [info] ndat: 2764800, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 904, time: 0.11753342500000001
+[2026-06-29 04:38:09.818] [info] ndat: 2737152, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 913, time: 0.11759478400000001
+[2026-06-29 04:38:09.936] [info] ndat: 2764800, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 904, time: 0.117585005
+[2026-06-29 04:38:10.054] [info] ndat: 2764800, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 904, time: 0.117429114
+[2026-06-29 04:38:10.171] [info] ndat: 2764800, target_ndat: 2500000000, npol: 1, ndim: 2, nbit: 32, iters: 904, time: 0.117387085
+Best ndat should be: 2792448
